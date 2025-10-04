@@ -20,6 +20,7 @@ const Analysis = () => {
   const [selectedDataType, setSelectedDataType] = useState("csv"); // Currently selected data input method
   const [isAnalyzing, setIsAnalyzing] = useState(false); // Loading state during analysis
   const [results, setResults] = useState(null); // Analysis results data
+  const [isReasoningVisible, setIsReasoningVisible] = useState(true); // Toggle for reasoning panel
 
   /**
    * Handles the analysis process
@@ -28,6 +29,7 @@ const Analysis = () => {
   const handleAnalysis = () => {
     setIsAnalyzing(true);
     setResults(null);
+    setIsReasoningVisible(true);
 
     // Simulate analysis process with timeout
     setTimeout(() => {
@@ -35,11 +37,11 @@ const Analysis = () => {
       // Mock results for demonstration
       setResults({
         exoplanetDetected: true,
-        confidence: 0.89,
-        planetRadius: 1.2,
-        orbitalPeriod: 3.4,
+        confidence: 0.9,
+        planetRadius: 1.16,
+        orbitalPeriod: 37.0,
         hostStar: "Kepler-442",
-        transitDepth: 0.0012,
+        transitDepth: 0.0001311, // fraction -> ppm: ~131.1
       });
     }, 4000);
   };
@@ -228,92 +230,93 @@ const Analysis = () => {
             </div>
           )}
 
-          {/* Results Section - Displays analysis results when available */}
+          {/* Results Section - Redesigned verdict header and reasoning panel */}
           {results && (
-            <div className="bg-slate-800 rounded-lg p-8">
-              <h2 className="text-2xl font-semibold mb-6">Analysis Results</h2>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Left column - Detection results and download */}
-                <div className="space-y-6">
-                  {/* Exoplanet detection results card */}
-                  <div className="bg-slate-700 rounded-lg p-6">
-                    <h3 className="text-xl font-semibold mb-4 text-green-400">
-                      ✓ Exoplanet Detected
-                    </h3>
-                    <div className="space-y-3">
-                      {/* Confidence level */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Confidence:</span>
-                        <span className="font-semibold">
-                          {(results.confidence * 100).toFixed(1)}%
-                        </span>
-                      </div>
-
-                      {/* Planet radius */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Planet Radius:</span>
-                        <span className="font-semibold">
-                          {results.planetRadius} Earth radii
-                        </span>
-                      </div>
-
-                      {/* Orbital period */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Orbital Period:</span>
-                        <span className="font-semibold">
-                          {results.orbitalPeriod} days
-                        </span>
-                      </div>
-
-                      {/* Host star */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Host Star:</span>
-                        <span className="font-semibold">
-                          {results.hostStar}
-                        </span>
-                      </div>
-
-                      {/* Transit depth */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Transit Depth:</span>
-                        <span className="font-semibold">
-                          {results.transitDepth}
-                        </span>
-                      </div>
-                    </div>
+            <section className="bg-slate-800 rounded-xl overflow-hidden">
+              {/* Header with verdict and confidence */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Verdict:</span>
+                    <span
+                      className={`text-lg font-semibold ${
+                        results.exoplanetDetected ? "text-emerald-400" : "text-red-400"
+                      }`}
+                    >
+                      {results.exoplanetDetected ? "Exoplanet" : "False Positive"}
+                    </span>
                   </div>
-
-                  {/* Download report button */}
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold">
-                    Download Full Report
-                  </button>
-                </div>
-
-                {/* Right column - Visualizations */}
-                <div className="space-y-6">
-                  {/* Light curve visualization placeholder */}
-                  <div className="bg-slate-700 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-4">
-                      Light Curve Visualization
-                    </h3>
-                    <div className="h-48 bg-slate-600 rounded-lg flex items-center justify-center">
-                      <p className="text-gray-400">Light Curve Chart</p>
-                    </div>
-                  </div>
-
-                  {/* Planet visualization placeholder */}
-                  <div className="bg-slate-700 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-4">
-                      Planet Visualization
-                    </h3>
-                    <div className="h-32 bg-gradient-to-br from-blue-400 to-green-500 rounded-lg flex items-center justify-center">
-                      <div className="w-16 h-16 bg-slate-800 rounded-full"></div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Confidence:</span>
+                    <span className="text-lg font-semibold">
+                      {(results.confidence * 100).toFixed(0)}%
+                    </span>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsReasoningVisible((prev) => !prev)}
+                  className={`px-4 py-2 rounded-md font-semibold text-sm transition-colors border ${
+                    isReasoningVisible
+                      ? "bg-rose-600 hover:bg-rose-700 border-rose-500"
+                      : "bg-slate-700 hover:bg-slate-600 border-slate-600"
+                  }`}
+                  aria-expanded={isReasoningVisible}
+                  aria-controls="reasoning-panel"
+                >
+                  {isReasoningVisible ? "CLOSE REASONING" : "SHOW REASONING"}
+                </button>
               </div>
-            </div>
+
+              {/* Reasoning content */}
+              {isReasoningVisible && (
+                <div id="reasoning-panel" className="px-6 py-6">
+                  <h3 className="text-xl font-semibold mb-2">Reasoning:</h3>
+                  <p className="text-gray-400 text-sm mb-6">
+                    This is purely AI-assisted reasoning. So you shouldn't expect the reasoning as flawless.
+                  </p>
+
+                  <ol className="list-decimal list-inside space-y-5">
+                    <li>
+                      <p className="font-semibold mb-2">Ideal Planetary Parameters</p>
+                      <ul className="list-disc list-inside text-gray-300 space-y-1">
+                        <li>
+                          Planet Radius: {results.planetRadius.toFixed(2)} Earth radii.
+                        </li>
+                        <li>
+                          Transit Depth: {(results.transitDepth * 1_000_000).toFixed(1)} ppm, consistent with a small planet.
+                        </li>
+                        <li>Orbital Period: {results.orbitalPeriod} days around {results.hostStar}.</li>
+                      </ul>
+                    </li>
+
+                    <li>
+                      <p className="font-semibold mb-2">Lack of Evidence for a False Positive</p>
+                      <ul className="list-disc list-inside text-gray-300 space-y-1">
+                        <li>Clean, box-like transit signature with stable out-of-transit baseline.</li>
+                        <li>No significant centroid motion consistent with background eclipsing binaries.</li>
+                        <li>Automated vetting checks do not indicate contamination or instrumental artifacts.</li>
+                      </ul>
+                    </li>
+                  </ol>
+
+                  <div className="mt-6 text-gray-400 text-sm space-y-3">
+                    <p>
+                      The data for this object presents a compelling case for a genuine exoplanet. The signal is strong and clean, and the
+                      confidence score reflects the model's agreement with a planetary interpretation.
+                    </p>
+                    <p>
+                      Nevertheless, additional follow-up observations (e.g., high-resolution imaging or radial velocity) are recommended to
+                      further validate this target.
+                    </p>
+                    <p>
+                      Based solely on the information provided, this object should be considered a high-priority planetary candidate.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </section>
           )}
         </div>
       </div>
