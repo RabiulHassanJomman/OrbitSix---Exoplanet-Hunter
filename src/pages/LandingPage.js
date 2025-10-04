@@ -201,7 +201,7 @@ const LandingPage = () => {
 
           {/* Description text */}
           <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-3xl mx-auto leading-relaxed">
-            Team OrbitSix is presenting you a Machine Learning model to check
+            Team OrbitSixx is presenting you a Machine Learning model to check
             whether data lead us to Exoplanet or not. Here your data will speak
             louder than before. Choose what type of Input method you want to use
             and Get Started!
