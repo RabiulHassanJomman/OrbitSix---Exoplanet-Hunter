@@ -23,6 +23,7 @@ const LandingPage = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false); // Loading state during analysis
   const [showResults, setShowResults] = useState(false); // Controls results display
   const [selectedInputMethod, setSelectedInputMethod] = useState("manual"); // Current input method
+  const [showReasoning, setShowReasoning] = useState(false); // State for showing/hiding reasoning section
 
   /**
    * Scrolls to the data input section when "Try The Tool" button is clicked
@@ -128,6 +129,7 @@ const LandingPage = () => {
     setTimeout(() => {
       setIsAnalyzing(false);
       setShowResults(true);
+      setShowReasoning(false); // Reset reasoning visibility
     }, 3000);
   };
 
@@ -1044,161 +1046,155 @@ const LandingPage = () => {
               </div>
             )}
 
-            {showResults && selectedInputMethod === "dataset" && (
-              <div className="space-y-6">
-                <div className="bg-slate-800 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2">
-                        Exoplanet Detected: Kepler-11b
-                      </h3>
-                      <p className="text-gray-300 mb-4">
-                        The analysis indicates a high probability of an
-                        exoplanet in the provided dataset. Detailed information
-                        is presented below.
-                      </p>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-400">Orbital Period</span>
-                          <p className="text-white font-semibold">10.3 days</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Planet Radius</span>
-                          <p className="text-white font-semibold">
-                            1.97 x Earth
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Insolation Flux</span>
-                          <p className="text-white font-semibold">95.06</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="w-32 h-32 bg-gradient-to-br from-blue-400 to-teal-500 rounded-full flex items-center justify-center">
-                      <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-teal-600 rounded-full"></div>
-                    </div>
+            {showResults && (
+              <div className="bg-slate-800 rounded-lg p-8">
+                {/* Header with Verdict, Confidence, and Toggle Button */}
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-200 mb-2">
+                      Verdict: Exoplanet
+                    </h2>
+                    <p className="text-xl font-bold text-gray-300">
+                      Confidence: 89%
+                    </p>
                   </div>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                    View Details
+                  <button
+                    onClick={() => setShowReasoning(!showReasoning)}
+                    className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+                      showReasoning
+                        ? "bg-red-600 hover:bg-red-700 text-white"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
+                  >
+                    {showReasoning ? "CLOSE REASONING" : "VIEW REASONING"}
                   </button>
                 </div>
 
-                <div className="bg-slate-800 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-2">Accuracy</h3>
-                      <div className="flex items-center mb-4">
-                        <span className="text-4xl font-bold text-white mr-2">
-                          98%
-                        </span>
-                        <p className="text-gray-300 text-sm">
-                          The model's confidence in this detection is extremely
-                          high, based on multiple consistent transit signals.
+                {/* Reasoning Section - Shows when button is clicked */}
+                {showReasoning && (
+                  <div className="mt-8">
+                    <h3 className="text-2xl font-bold text-gray-200 mb-4">
+                      Reasoning:
+                    </h3>
+                    <p className="text-gray-400 italic mb-6">
+                      This is purely AI-assisted reasoning. So you shouldn't
+                      expect the reasoning as flawless.
+                    </p>
+
+                    <div className="space-y-6 text-gray-300">
+                      {/* Ideal Planetary Parameters */}
+                      <div>
+                        <h4 className="text-lg font-bold mb-3">
+                          1. Ideal Planetary Parameters
+                        </h4>
+                        <ul className="space-y-3 ml-4">
+                          <li>
+                            <strong>Planet Radius (koi_prad):</strong> The
+                            derived radius is{" "}
+                            {selectedInputMethod === "manual"
+                              ? manualData.pl_prad_re
+                              : "1.16"}{" "}
+                            Earth radii. This is a perfect size for a small,
+                            terrestrial 'super-Earth' type planet and is a
+                            strong indicator of a planetary nature.
+                          </li>
+                          <li>
+                            <strong>Transit Depth (koi_depth):</strong> The
+                            depth of{" "}
+                            {selectedInputMethod === "manual"
+                              ? manualData.pl_depth_ppm
+                              : "131.1"}{" "}
+                            ppm is very shallow, consistent with a small planet
+                            transiting a Sun-like star. It is far too shallow to
+                            be caused by a stellar companion.
+                          </li>
+                          <li>
+                            <strong>
+                              Signal-to-Noise Ratio (koi_model_snr):
+                            </strong>{" "}
+                            At{" "}
+                            {selectedInputMethod === "manual"
+                              ? manualData.koi_model_snr.toFixed(1)
+                              : "50.6"}
+                            , the signal is detected with extremely high
+                            confidence. There is no doubt that a real, periodic
+                            dimming event is occurring.
+                          </li>
+                          <li>
+                            <strong>Impact Parameter (koi_impact):</strong> The
+                            value of{" "}
+                            {selectedInputMethod === "manual"
+                              ? manualData.koi_impact.toFixed(3)
+                              : "0.051"}{" "}
+                            is very close to zero, indicating a central transit
+                            across the star's disk. This typically produces a
+                            clean, flat-bottomed 'U-shaped' light curve, which
+                            is a hallmark of a genuine planetary transit.
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* Lack of Evidence for False Positive */}
+                      <div>
+                        <h4 className="text-lg font-bold mb-3">
+                          2. Lack of Evidence for a False Positive
+                        </h4>
+                        <p className="mb-3">
+                          Common causes for false positives are not present in
+                          this case.
+                        </p>
+                        <div className="ml-4">
+                          <strong>Centroid Analysis:</strong> Key tests for a
+                          background eclipsing binary (BEB) show:
+                          <ul className="mt-2 space-y-2 ml-4">
+                            <li>
+                              The koi_dicco_msky offset is 0.29 ± 0.20
+                              arcseconds, a deviation of only 1.45-sigma from
+                              the target's position.
+                            </li>
+                            <li>
+                              The koi_dikco_msky offset is 0.21 ± 0.21
+                              arcseconds, a deviation of just 1.0-sigma.
+                            </li>
+                          </ul>
+                          <p className="mt-3">
+                            These measurements are not statistically
+                            significant, suggesting the transit signal
+                            originates from the target star.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Conclusion */}
+                      <div className="space-y-4">
+                        <p>
+                          The data presents a compelling case for a genuine
+                          exoplanet. This appears to be a small, Earth-sized
+                          world on a{" "}
+                          {selectedInputMethod === "manual"
+                            ? manualData.pl_orbper_days.toFixed(1)
+                            : "3.7"}
+                          -day orbit, with strong and clean signals, and no
+                          significant issues found by automated vetting tests.
+                        </p>
+                        <p>
+                          The "FALSE POSITIVE" disposition is inexplicable based
+                          on the data provided. This might be due to external
+                          information not included in this dataset, such as
+                          high-resolution follow-up imaging, radial velocity
+                          measurements, or subtle artifacts in raw light curve
+                          data.
+                        </p>
+                        <p>
+                          Based solely on the provided information, this object
+                          should be considered a "high-priority PLANETARY
+                          CANDIDATE." The available evidence does not support
+                          the given disposition.
                         </p>
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="bg-slate-800 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-4">Reasoning</h3>
-                      <p className="text-gray-300 mb-4">
-                        The AI model identified a significant and periodic dip
-                        in the star's brightness, which is a classic indicator
-                        of a transiting exoplanet. The key features that led to
-                        this conclusion are highlighted below.
-                      </p>
-                      <div className="space-y-3">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                          <div>
-                            <span className="font-semibold">
-                              Transit Signal:
-                            </span>
-                            <span className="text-gray-300 ml-1">
-                              A recurring dip of 0.047% in the light curve was
-                              detected.
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                          <div>
-                            <span className="font-semibold">Periodicity:</span>
-                            <span className="text-gray-300 ml-1">
-                              The transits occur with a regular period of 10.3
-                              days, suggesting a stable orbit.
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                          <div>
-                            <span className="font-semibold">Signal Shape:</span>
-                            <span className="text-gray-300 ml-1">
-                              The U-shaped transit profile is consistent with a
-                              planetary body crossing its host star.
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="w-24 h-24 bg-slate-700 rounded-lg flex flex-col items-center justify-center ml-6">
-                      <div className="flex space-x-1">
-                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      </div>
-                      <div className="mt-2 text-xs text-gray-400">
-                        Traffic Light
-                      </div>
-                    </div>
-                  </div>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                    View Analysis
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {showResults && selectedInputMethod !== "dataset" && (
-              <div className="space-y-6">
-                <div className="bg-slate-800 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold">
-                      Exoplanet Detected
-                    </h3>
-                    <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-green-500 rounded-full"></div>
-                  </div>
-                  <p className="text-gray-300 mb-4">
-                    Based on the analysis, an exoplanet has been detected in the
-                    provided data.
-                  </p>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                    View Details
-                  </button>
-                </div>
-
-                <div className="bg-slate-800 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold">Reasoning</h3>
-                    <div className="w-24 h-24 bg-slate-700 rounded-lg flex items-center justify-center">
-                      <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                      <div className="w-4 h-4 bg-yellow-500 rounded-full mx-1"></div>
-                      <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                    </div>
-                  </div>
-                  <p className="text-gray-300 mb-4">
-                    The AI model identified a significant transit signal in the
-                    light curve data, indicating the presence of a potential
-                    exoplanet.
-                  </p>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                    View Analysis
-                  </button>
-                </div>
+                )}
               </div>
             )}
           </div>

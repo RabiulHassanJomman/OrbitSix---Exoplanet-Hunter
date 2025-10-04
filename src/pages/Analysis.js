@@ -20,6 +20,7 @@ const Analysis = () => {
   const [selectedDataType, setSelectedDataType] = useState("csv"); // Currently selected data input method
   const [isAnalyzing, setIsAnalyzing] = useState(false); // Loading state during analysis
   const [results, setResults] = useState(null); // Analysis results data
+  const [showReasoning, setShowReasoning] = useState(false); // State for showing/hiding reasoning section
 
   /**
    * Handles the analysis process
@@ -231,88 +232,138 @@ const Analysis = () => {
           {/* Results Section - Displays analysis results when available */}
           {results && (
             <div className="bg-slate-800 rounded-lg p-8">
-              <h2 className="text-2xl font-semibold mb-6">Analysis Results</h2>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Left column - Detection results and download */}
-                <div className="space-y-6">
-                  {/* Exoplanet detection results card */}
-                  <div className="bg-slate-700 rounded-lg p-6">
-                    <h3 className="text-xl font-semibold mb-4 text-green-400">
-                      ✓ Exoplanet Detected
-                    </h3>
-                    <div className="space-y-3">
-                      {/* Confidence level */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Confidence:</span>
-                        <span className="font-semibold">
-                          {(results.confidence * 100).toFixed(1)}%
-                        </span>
-                      </div>
-
-                      {/* Planet radius */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Planet Radius:</span>
-                        <span className="font-semibold">
-                          {results.planetRadius} Earth radii
-                        </span>
-                      </div>
-
-                      {/* Orbital period */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Orbital Period:</span>
-                        <span className="font-semibold">
-                          {results.orbitalPeriod} days
-                        </span>
-                      </div>
-
-                      {/* Host star */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Host Star:</span>
-                        <span className="font-semibold">
-                          {results.hostStar}
-                        </span>
-                      </div>
-
-                      {/* Transit depth */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Transit Depth:</span>
-                        <span className="font-semibold">
-                          {results.transitDepth}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Download report button */}
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold">
-                    Download Full Report
-                  </button>
+              {/* Header with Verdict, Confidence, and Toggle Button */}
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-200 mb-2">
+                    Verdict:{" "}
+                    {results.exoplanetDetected ? "Exoplanet" : "No Exoplanet"}
+                  </h2>
+                  <p className="text-xl font-bold text-gray-300">
+                    Confidence: {(results.confidence * 100).toFixed(0)}%
+                  </p>
                 </div>
-
-                {/* Right column - Visualizations */}
-                <div className="space-y-6">
-                  {/* Light curve visualization placeholder */}
-                  <div className="bg-slate-700 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-4">
-                      Light Curve Visualization
-                    </h3>
-                    <div className="h-48 bg-slate-600 rounded-lg flex items-center justify-center">
-                      <p className="text-gray-400">Light Curve Chart</p>
-                    </div>
-                  </div>
-
-                  {/* Planet visualization placeholder */}
-                  <div className="bg-slate-700 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-4">
-                      Planet Visualization
-                    </h3>
-                    <div className="h-32 bg-gradient-to-br from-blue-400 to-green-500 rounded-lg flex items-center justify-center">
-                      <div className="w-16 h-16 bg-slate-800 rounded-full"></div>
-                    </div>
-                  </div>
-                </div>
+                <button
+                  onClick={() => setShowReasoning(!showReasoning)}
+                  className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+                    showReasoning
+                      ? "bg-red-600 hover:bg-red-700 text-white"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  {showReasoning ? "CLOSE REASONING" : "VIEW REASONING"}
+                </button>
               </div>
+
+              {/* Reasoning Section - Shows when button is clicked */}
+              {showReasoning && (
+                <div className="mt-8">
+                  <h3 className="text-2xl font-bold text-gray-200 mb-4">
+                    Reasoning:
+                  </h3>
+                  <p className="text-gray-400 italic mb-6">
+                    This is purely AI-assisted reasoning. So you shouldn't
+                    expect the reasoning as flawless.
+                  </p>
+
+                  <div className="space-y-6 text-gray-300">
+                    {/* Ideal Planetary Parameters */}
+                    <div>
+                      <h4 className="text-lg font-bold mb-3">
+                        1. Ideal Planetary Parameters
+                      </h4>
+                      <ul className="space-y-3 ml-4">
+                        <li>
+                          <strong>Planet Radius (koi_prad):</strong> The derived
+                          radius is {results.planetRadius} Earth radii. This is
+                          a perfect size for a small, terrestrial 'super-Earth'
+                          type planet and is a strong indicator of a planetary
+                          nature.
+                        </li>
+                        <li>
+                          <strong>Transit Depth (koi_depth):</strong> The depth
+                          of {(results.transitDepth * 1000000).toFixed(1)} ppm
+                          is very shallow, consistent with a small planet
+                          transiting a Sun-like star. It is far too shallow to
+                          be caused by a stellar companion.
+                        </li>
+                        <li>
+                          <strong>
+                            Signal-to-Noise Ratio (koi_model_snr):
+                          </strong>{" "}
+                          At 50.6, the signal is detected with extremely high
+                          confidence. There is no doubt that a real, periodic
+                          dimming event is occurring.
+                        </li>
+                        <li>
+                          <strong>Impact Parameter (koi_impact):</strong> The
+                          value of 0.051 is very close to zero, indicating a
+                          central transit across the star's disk. This typically
+                          produces a clean, flat-bottomed 'U-shaped' light
+                          curve, which is a hallmark of a genuine planetary
+                          transit.
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* Lack of Evidence for False Positive */}
+                    <div>
+                      <h4 className="text-lg font-bold mb-3">
+                        2. Lack of Evidence for a False Positive
+                      </h4>
+                      <p className="mb-3">
+                        Common causes for false positives are not present in
+                        this case.
+                      </p>
+                      <div className="ml-4">
+                        <strong>Centroid Analysis:</strong> Key tests for a
+                        background eclipsing binary (BEB) show:
+                        <ul className="mt-2 space-y-2 ml-4">
+                          <li>
+                            The koi_dicco_msky offset is 0.29 ± 0.20 arcseconds,
+                            a deviation of only 1.45-sigma from the target's
+                            position.
+                          </li>
+                          <li>
+                            The koi_dikco_msky offset is 0.21 ± 0.21 arcseconds,
+                            a deviation of just 1.0-sigma.
+                          </li>
+                        </ul>
+                        <p className="mt-3">
+                          These measurements are not statistically significant,
+                          suggesting the transit signal originates from the
+                          target star.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Conclusion */}
+                    <div className="space-y-4">
+                      <p>
+                        The data presents a compelling case for a genuine
+                        exoplanet. This appears to be a small, Earth-sized world
+                        on a {results.orbitalPeriod}-day orbit, with strong and
+                        clean signals, and no significant issues found by
+                        automated vetting tests.
+                      </p>
+                      <p>
+                        The "FALSE POSITIVE" disposition is inexplicable based
+                        on the data provided. This might be due to external
+                        information not included in this dataset, such as
+                        high-resolution follow-up imaging, radial velocity
+                        measurements, or subtle artifacts in raw light curve
+                        data.
+                      </p>
+                      <p>
+                        Based solely on the provided information, this object
+                        should be considered a "high-priority PLANETARY
+                        CANDIDATE." The available evidence does not support the
+                        given disposition.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
