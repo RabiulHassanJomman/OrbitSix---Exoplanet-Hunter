@@ -1,7 +1,6 @@
 // Main App component that handles routing for the OrbitSix exoplanet detection platform
 import React from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
-import Analysis from "./pages/Analysis";
 import HowItWorks from "./pages/HowItWorks";
 import LandingPage from "./pages/LandingPage";
 import Team from "./pages/Team";
@@ -32,9 +31,7 @@ function App() {
           {/* Team page - Information about the development team */}
           <Route path="/team" element={<Team />} />
 
-          {/* Analysis page - Dedicated tool for exoplanet analysis */}
-          <Route path="/analysis" element={<Analysis />} />
-        </Routes>
+          </Routes>
       </div>
     </Router>
   );
