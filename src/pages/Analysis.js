@@ -29,7 +29,6 @@ const Analysis = () => {
   const handleAnalysis = () => {
     setIsAnalyzing(true);
     setResults(null);
-    setIsReasoningVisible(true);
 
     // Simulate analysis process with timeout
     setTimeout(() => {
@@ -37,11 +36,11 @@ const Analysis = () => {
       // Mock results for demonstration
       setResults({
         exoplanetDetected: true,
-        confidence: 0.9,
-        planetRadius: 1.16,
-        orbitalPeriod: 37.0,
+        confidence: 0.89,
+        planetRadius: 1.2,
+        orbitalPeriod: 3.4,
         hostStar: "Kepler-442",
-        transitDepth: 0.0001311, // fraction -> ppm: ~131.1
+        transitDepth: 0.0012,
       });
     }, 4000);
   };
@@ -230,7 +229,7 @@ const Analysis = () => {
             </div>
           )}
 
-          {/* Results Section - Redesigned verdict header and reasoning panel */}
+          {/* Results Section - Displays analysis results when available */}
           {results && (
             <div className="bg-slate-800 rounded-lg p-8">
               {/* Header with Verdict, Confidence, and Toggle Button */}
