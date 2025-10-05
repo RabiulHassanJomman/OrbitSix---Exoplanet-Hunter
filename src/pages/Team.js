@@ -33,8 +33,8 @@ const Team = () => {
     },
     {
       name: "Arik",
-      role: "Full-stack Developer",
-      bio: "Develops and maintains the backend and frontend systems for OrbitSix.",
+      role: "Backend Developer",
+      bio: "Develops and maintains the backend systems for OrbitSix.",
     },
     {
       name: "Antor",
