@@ -57,6 +57,14 @@ function Header() {
           >
             Team
           </button>
+
+          {/* Tutorial button - Navigate to tutorial page */}
+          <button
+            onClick={() => navigate("/tutorial")}
+            className="hover:text-blue-400 transition-colors duration-200"
+          >
+            Tutorial
+          </button>
         </nav>
       </div>
     </header>

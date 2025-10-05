@@ -4,6 +4,7 @@ import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import HowItWorks from "./pages/HowItWorks";
 import LandingPage from "./pages/LandingPage";
 import Team from "./pages/Team";
+import Tutorial from "./pages/Tutorial";
 
 /**
  * App Component
@@ -31,7 +32,9 @@ function App() {
           {/* Team page - Information about the development team */}
           <Route path="/team" element={<Team />} />
 
-          </Routes>
+          {/* Tutorial page - Comprehensive user guide */}
+          <Route path="/tutorial" element={<Tutorial />} />
+        </Routes>
       </div>
     </Router>
   );
