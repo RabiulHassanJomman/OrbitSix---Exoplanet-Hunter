@@ -142,7 +142,7 @@ const LightCurveChart = ({
                 fill="#94a3b8"
                 fontSize="10"
               >
-                {t != "0" ? t + "00" : t}
+                {t !== "0" ? t + "00" : t}
               </text>
             </g>
           );
