@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
+import LightCurveChart from "../components/LightCurveChart";
 
 /**
  * LandingPage Component
@@ -24,6 +25,7 @@ const LandingPage = () => {
   const [showResults, setShowResults] = useState(false); // Controls results display
   const [selectedInputMethod, setSelectedInputMethod] = useState("manual"); // Current input method
   const [showReasoning, setShowReasoning] = useState(false); // State for showing/hiding reasoning section
+  const [lightCurveData, setLightCurveData] = useState([]); // Mock or backend-provided light curve
 
   /**
    * Scrolls to the data input section when "Try The Tool" button is clicked
@@ -86,6 +88,7 @@ const LandingPage = () => {
 
     setIsAnalyzing(true);
     setShowResults(false);
+    setLightCurveData([]);
 
     // Prepare data for ML model based on input method
     const analysisData =
@@ -124,6 +127,54 @@ const LandingPage = () => {
           };
 
     console.log("Data prepared for ML model:", analysisData);
+
+    // For existing dataset input, load a mock light curve dataset for now
+    if (selectedInputMethod === "dataset") {
+      // Realistic periodic transit with correlated (red) noise and white noise
+      const totalDays = 7;
+      const samples = 700; // finer cadence for scatter
+      const dt = totalDays / samples;
+      const period = 2.0; // days
+      const t0 = 1.1; // phase offset so transits appear near 1.1, 3.1, 5.1...
+      const depth = 0.0065; // ~0.65% depth
+      const duration = 0.14; // days (total transit duration)
+      const ingressWidth = 0.06; // days (smoothing for ingress/egress)
+
+      // Build red noise via simple exponential smoothing (AR(1)) plus white noise
+      const redNoise = new Array(samples + 1);
+      let rn = 0;
+      const alpha = 0.92; // correlation strength
+      for (let i = 0; i <= samples; i++) {
+        const wn = (Math.random() - 0.5) * 0.0006; // white noise component
+        rn = alpha * rn + (1 - alpha) * wn * 8; // ensure noticeable but small
+        redNoise[i] = rn + wn;
+      }
+
+      const transitProfile = (time) => {
+        // distance from nearest mid-transit in days
+        const phase = (((time - t0) % period) + period) % period; // 0..period
+        const d = Math.abs(phase - period / 2);
+        const half = duration / 2;
+        if (d >= half) return 0; // out of transit
+        // inside: flat bottom with smoothed ingress/egress using cosine/smoothstep blend
+        if (d <= half - ingressWidth) return 1; // full depth
+        const x = (d - (half - ingressWidth)) / ingressWidth; // 0..1 in edge
+        const s = 0.5 * (1 + Math.cos(Math.PI * x)); // cosine ramp from 1->0
+        return s;
+      };
+
+      const mock = Array.from({ length: samples + 1 }, (_, i) => {
+        const t = i * dt; // 0..7
+        const baseline = 1.0;
+        const transit = transitProfile(t);
+        const outlier =
+          Math.random() < 0.01 ? (Math.random() - 0.5) * 0.001 : 0; // rare small outliers
+        const flux = baseline - depth * transit + redNoise[i] + outlier;
+        return { time: t, flux };
+      });
+
+      setLightCurveData(mock);
+    }
 
     // Simulate analysis process with timeout
     setTimeout(() => {
@@ -1069,6 +1120,24 @@ const LandingPage = () => {
                     {showReasoning ? "CLOSE REASONING" : "VIEW REASONING"}
                   </button>
                 </div>
+
+                {/* Light curve rendered for existing dataset input */}
+                {selectedInputMethod === "dataset" &&
+                  lightCurveData.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-2xl font-bold text-gray-200 mb-4">
+                        Light Curve (Existing Dataset)
+                      </h3>
+                      <LightCurveChart
+                        data={lightCurveData}
+                        width={760}
+                        height={360}
+                        showPoints={true}
+                        xDomain={[0, 7]}
+                        yDomain={[0.992, 1.002]}
+                      />
+                    </div>
+                  )}
 
                 {/* Reasoning Section - Shows when button is clicked */}
                 {showReasoning && (
