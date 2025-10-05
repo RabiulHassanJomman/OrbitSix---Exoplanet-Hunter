@@ -23,12 +23,12 @@ const Team = () => {
     },
     {
       name: "Afeef",
-      role: "Data Analyst",
+      role: "Data Analyst and Writer",
       bio: "Expert in data preprocessing, cleaning, and extracting insights from astronomical datasets.",
     },
     {
       name: "Farabi",
-      role: "Data Analyst",
+      role: "Data Analyst and Writer",
       bio: "Focuses on data analysis and validation to ensure accuracy in exoplanet discoveries.",
     },
     {
