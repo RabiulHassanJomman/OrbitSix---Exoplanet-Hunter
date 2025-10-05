@@ -3,6 +3,13 @@ import { useState } from "react";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
 import LightCurveChart from "../components/LightCurveChart";
+import {
+  deleteLightcurve,
+  fetchReason,
+  lightcurveImageUrl,
+  manualPredict,
+  uploadRaw,
+} from "../services/api";
 
 /**
  * LandingPage Component
@@ -26,6 +33,12 @@ const LandingPage = () => {
   const [selectedInputMethod, setSelectedInputMethod] = useState("manual"); // Current input method
   const [showReasoning, setShowReasoning] = useState(false); // State for showing/hiding reasoning section
   const [lightCurveData, setLightCurveData] = useState([]); // Mock or backend-provided light curve
+  const [predictionId, setPredictionId] = useState(null);
+  const [predictionVerdict, setPredictionVerdict] = useState(null);
+  const [predictionScore, setPredictionScore] = useState(null);
+  const [predictionError, setPredictionError] = useState("");
+  const [reasonText, setReasonText] = useState("");
+  const [lightcurveUrl, setLightcurveUrl] = useState("");
 
   /**
    * Scrolls to the data input section when "Try The Tool" button is clicked
@@ -82,13 +95,19 @@ const LandingPage = () => {
    * Handles the analysis process based on selected input method
    * Prepares data for ML model and simulates analysis
    */
-  const handleAnalysis = () => {
+  const handleAnalysis = async () => {
     // Validate file selection for CSV input method
     if (selectedInputMethod === "csv" && !selectedFile) return;
 
     setIsAnalyzing(true);
     setShowResults(false);
     setLightCurveData([]);
+    setPredictionError("");
+    setPredictionId(null);
+    setPredictionVerdict(null);
+    setPredictionScore(null);
+    setReasonText("");
+    setLightcurveUrl("");
 
     // Prepare data for ML model based on input method
     const analysisData =
@@ -176,12 +195,51 @@ const LandingPage = () => {
       setLightCurveData(mock);
     }
 
-    // Simulate analysis process with timeout
-    setTimeout(() => {
-      setIsAnalyzing(false);
+    try {
+      if (selectedInputMethod === "manual") {
+        const payload = {
+          radius_ratio: manualData.k_ror,
+          planetary_radius: manualData.pl_prad_re,
+          orbital_period: manualData.pl_orbper_days,
+          insolation_flux: manualData.pl_insol_flux,
+          transit_depth: manualData.pl_depth_ppm,
+          transit_duration: manualData.pl_trandur_hrs,
+          impact_parameter: manualData.koi_impact,
+          transit_midpoint: manualData.pl_tranmid_bjd,
+          stellar_temp: manualData.st_teff_k,
+          stellar_radius: manualData.st_rad_rsun,
+          stellar_density: manualData.k_srho,
+          stellar_mag_tess: manualData.st_mag_tess,
+          stellar_mass: null,
+          stellar_logg: null,
+          stellar_metallicity: null,
+          transit_depth_err: null,
+          model_snr: manualData.koi_model_snr,
+        };
+        const res = await manualPredict(payload);
+        setPredictionId(res.id || null);
+        setPredictionVerdict(res.verdict || null);
+        setPredictionScore(typeof res.score === "number" ? res.score : null);
+      } else if (selectedInputMethod === "raw") {
+        if (!selectedFile) {
+          throw new Error("Please select a file to upload");
+        }
+        const res = await uploadRaw(selectedFile);
+        setPredictionId(res.id || null);
+        setPredictionVerdict(res.verdict || null);
+        setPredictionScore(typeof res.score === "number" ? res.score : null);
+        if (res.id) {
+          setLightcurveUrl(lightcurveImageUrl(res.id));
+        }
+      }
       setShowResults(true);
-      setShowReasoning(false); // Reset reasoning visibility
-    }, 3000);
+      setShowReasoning(false);
+    } catch (err) {
+      setPredictionError(err?.message || "Prediction failed");
+      setShowResults(true);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   /**
@@ -1103,14 +1161,29 @@ const LandingPage = () => {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h2 className="text-3xl font-bold text-gray-200 mb-2">
-                      Verdict: Exoplanet
+                      Verdict: {predictionVerdict || "-"}
                     </h2>
                     <p className="text-xl font-bold text-gray-300">
-                      Confidence: 89%
+                      Confidence:{" "}
+                      {predictionScore != null
+                        ? Math.round(predictionScore * 100)
+                        : "-"}
+                      %
                     </p>
                   </div>
                   <button
-                    onClick={() => setShowReasoning(!showReasoning)}
+                    onClick={async () => {
+                      const next = !showReasoning;
+                      setShowReasoning(next);
+                      if (next && predictionId && !reasonText) {
+                        try {
+                          const r = await fetchReason(predictionId);
+                          setReasonText(r?.reason || "");
+                        } catch (e) {
+                          setReasonText("Could not fetch reasoning.");
+                        }
+                      }
+                    }}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
                       showReasoning
                         ? "bg-red-600 hover:bg-red-700 text-white"
@@ -1120,6 +1193,40 @@ const LandingPage = () => {
                     {showReasoning ? "CLOSE REASONING" : "VIEW REASONING"}
                   </button>
                 </div>
+
+                {predictionError && (
+                  <div className="mb-6 text-red-400">{predictionError}</div>
+                )}
+
+                {/* Raw light curve image (for raw uploads) */}
+                {selectedInputMethod === "raw" &&
+                  predictionId &&
+                  lightcurveUrl && (
+                    <div className="mb-8">
+                      <h3 className="text-2xl font-bold text-gray-200 mb-4">
+                        Light Curve
+                      </h3>
+                      <img
+                        src={lightcurveUrl}
+                        alt="Light curve"
+                        className="w-full max-w-3xl rounded border border-slate-700"
+                      />
+                      <div className="mt-3">
+                        <button
+                          onClick={async () => {
+                            if (!predictionId) return;
+                            try {
+                              await deleteLightcurve(predictionId);
+                              setLightcurveUrl("");
+                            } catch (_) {}
+                          }}
+                          className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded"
+                        >
+                          Delete Light Curve
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                 {/* Light curve rendered for existing dataset input */}
                 {selectedInputMethod === "dataset" &&
@@ -1149,119 +1256,127 @@ const LandingPage = () => {
                       This is purely AI-assisted reasoning. So you shouldn't
                       expect the reasoning as flawless.
                     </p>
-
-                    <div className="space-y-6 text-gray-300">
-                      {/* Ideal Planetary Parameters */}
-                      <div>
-                        <h4 className="text-lg font-bold mb-3">
-                          1. Ideal Planetary Parameters
-                        </h4>
-                        <ul className="space-y-3 ml-4">
-                          <li>
-                            <strong>Planet Radius (koi_prad):</strong> The
-                            derived radius is{" "}
-                            {selectedInputMethod === "manual"
-                              ? manualData.pl_prad_re
-                              : "1.16"}{" "}
-                            Earth radii. This is a perfect size for a small,
-                            terrestrial 'super-Earth' type planet and is a
-                            strong indicator of a planetary nature.
-                          </li>
-                          <li>
-                            <strong>Transit Depth (koi_depth):</strong> The
-                            depth of{" "}
-                            {selectedInputMethod === "manual"
-                              ? manualData.pl_depth_ppm
-                              : "131.1"}{" "}
-                            ppm is very shallow, consistent with a small planet
-                            transiting a Sun-like star. It is far too shallow to
-                            be caused by a stellar companion.
-                          </li>
-                          <li>
-                            <strong>
-                              Signal-to-Noise Ratio (koi_model_snr):
-                            </strong>{" "}
-                            At{" "}
-                            {selectedInputMethod === "manual"
-                              ? manualData.koi_model_snr.toFixed(1)
-                              : "50.6"}
-                            , the signal is detected with extremely high
-                            confidence. There is no doubt that a real, periodic
-                            dimming event is occurring.
-                          </li>
-                          <li>
-                            <strong>Impact Parameter (koi_impact):</strong> The
-                            value of{" "}
-                            {selectedInputMethod === "manual"
-                              ? manualData.koi_impact.toFixed(3)
-                              : "0.051"}{" "}
-                            is very close to zero, indicating a central transit
-                            across the star's disk. This typically produces a
-                            clean, flat-bottomed 'U-shaped' light curve, which
-                            is a hallmark of a genuine planetary transit.
-                          </li>
-                        </ul>
+                    {predictionId && reasonText && (
+                      <div className="mb-6 text-gray-300 whitespace-pre-line">
+                        {reasonText}
                       </div>
+                    )}
 
-                      {/* Lack of Evidence for False Positive */}
-                      <div>
-                        <h4 className="text-lg font-bold mb-3">
-                          2. Lack of Evidence for a False Positive
-                        </h4>
-                        <p className="mb-3">
-                          Common causes for false positives are not present in
-                          this case.
-                        </p>
-                        <div className="ml-4">
-                          <strong>Centroid Analysis:</strong> Key tests for a
-                          background eclipsing binary (BEB) show:
-                          <ul className="mt-2 space-y-2 ml-4">
+                    {!reasonText && (
+                      <div className="space-y-6 text-gray-300">
+                        {/* Ideal Planetary Parameters */}
+                        <div>
+                          <h4 className="text-lg font-bold mb-3">
+                            1. Ideal Planetary Parameters
+                          </h4>
+                          <ul className="space-y-3 ml-4">
                             <li>
-                              The koi_dicco_msky offset is 0.29 ± 0.20
-                              arcseconds, a deviation of only 1.45-sigma from
-                              the target's position.
+                              <strong>Planet Radius (koi_prad):</strong> The
+                              derived radius is{" "}
+                              {selectedInputMethod === "manual"
+                                ? manualData.pl_prad_re
+                                : "1.16"}{" "}
+                              Earth radii. This is a perfect size for a small,
+                              terrestrial 'super-Earth' type planet and is a
+                              strong indicator of a planetary nature.
                             </li>
                             <li>
-                              The koi_dikco_msky offset is 0.21 ± 0.21
-                              arcseconds, a deviation of just 1.0-sigma.
+                              <strong>Transit Depth (koi_depth):</strong> The
+                              depth of{" "}
+                              {selectedInputMethod === "manual"
+                                ? manualData.pl_depth_ppm
+                                : "131.1"}{" "}
+                              ppm is very shallow, consistent with a small
+                              planet transiting a Sun-like star. It is far too
+                              shallow to be caused by a stellar companion.
+                            </li>
+                            <li>
+                              <strong>
+                                Signal-to-Noise Ratio (koi_model_snr):
+                              </strong>{" "}
+                              At{" "}
+                              {selectedInputMethod === "manual"
+                                ? manualData.koi_model_snr.toFixed(1)
+                                : "50.6"}
+                              , the signal is detected with extremely high
+                              confidence. There is no doubt that a real,
+                              periodic dimming event is occurring.
+                            </li>
+                            <li>
+                              <strong>Impact Parameter (koi_impact):</strong>{" "}
+                              The value of{" "}
+                              {selectedInputMethod === "manual"
+                                ? manualData.koi_impact.toFixed(3)
+                                : "0.051"}{" "}
+                              is very close to zero, indicating a central
+                              transit across the star's disk. This typically
+                              produces a clean, flat-bottomed 'U-shaped' light
+                              curve, which is a hallmark of a genuine planetary
+                              transit.
                             </li>
                           </ul>
-                          <p className="mt-3">
-                            These measurements are not statistically
-                            significant, suggesting the transit signal
-                            originates from the target star.
+                        </div>
+
+                        {/* Lack of Evidence for False Positive */}
+                        <div>
+                          <h4 className="text-lg font-bold mb-3">
+                            2. Lack of Evidence for a False Positive
+                          </h4>
+                          <p className="mb-3">
+                            Common causes for false positives are not present in
+                            this case.
+                          </p>
+                          <div className="ml-4">
+                            <strong>Centroid Analysis:</strong> Key tests for a
+                            background eclipsing binary (BEB) show:
+                            <ul className="mt-2 space-y-2 ml-4">
+                              <li>
+                                The koi_dicco_msky offset is 0.29 ± 0.20
+                                arcseconds, a deviation of only 1.45-sigma from
+                                the target's position.
+                              </li>
+                              <li>
+                                The koi_dikco_msky offset is 0.21 ± 0.21
+                                arcseconds, a deviation of just 1.0-sigma.
+                              </li>
+                            </ul>
+                            <p className="mt-3">
+                              These measurements are not statistically
+                              significant, suggesting the transit signal
+                              originates from the target star.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Conclusion */}
+                        <div className="space-y-4">
+                          <p>
+                            The data presents a compelling case for a genuine
+                            exoplanet. This appears to be a small, Earth-sized
+                            world on a{" "}
+                            {selectedInputMethod === "manual"
+                              ? manualData.pl_orbper_days.toFixed(1)
+                              : "3.7"}
+                            -day orbit, with strong and clean signals, and no
+                            significant issues found by automated vetting tests.
+                          </p>
+                          <p>
+                            The "FALSE POSITIVE" disposition is inexplicable
+                            based on the data provided. This might be due to
+                            external information not included in this dataset,
+                            such as high-resolution follow-up imaging, radial
+                            velocity measurements, or subtle artifacts in raw
+                            light curve data.
+                          </p>
+                          <p>
+                            Based solely on the provided information, this
+                            object should be considered a "high-priority
+                            PLANETARY CANDIDATE." The available evidence does
+                            not support the given disposition.
                           </p>
                         </div>
                       </div>
-
-                      {/* Conclusion */}
-                      <div className="space-y-4">
-                        <p>
-                          The data presents a compelling case for a genuine
-                          exoplanet. This appears to be a small, Earth-sized
-                          world on a{" "}
-                          {selectedInputMethod === "manual"
-                            ? manualData.pl_orbper_days.toFixed(1)
-                            : "3.7"}
-                          -day orbit, with strong and clean signals, and no
-                          significant issues found by automated vetting tests.
-                        </p>
-                        <p>
-                          The "FALSE POSITIVE" disposition is inexplicable based
-                          on the data provided. This might be due to external
-                          information not included in this dataset, such as
-                          high-resolution follow-up imaging, radial velocity
-                          measurements, or subtle artifacts in raw light curve
-                          data.
-                        </p>
-                        <p>
-                          Based solely on the provided information, this object
-                          should be considered a "high-priority PLANETARY
-                          CANDIDATE." The available evidence does not support
-                          the given disposition.
-                        </p>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>
