@@ -26,7 +26,7 @@ function Header() {
           className="flex items-center hover:opacity-80 transition-opacity"
         >
           <img
-            src="/images/Bare Logo SVG.png"
+            src="/images/logo.png"
             alt="OrbitSix"
             className="h-12 md:h-16 w-auto object-contain"
           />

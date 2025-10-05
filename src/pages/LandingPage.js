@@ -1,7 +1,14 @@
 // Main landing page component with ML model interface for exoplanet detection
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
+import {
+  deleteLightcurve,
+  fetchReason,
+  lightcurveImageUrl,
+  manualPredict,
+  uploadRaw,
+} from "../services/api";
 
 /**
  * LandingPage Component
@@ -24,6 +31,11 @@ const LandingPage = () => {
   const [showResults, setShowResults] = useState(false); // Controls results display
   const [selectedInputMethod, setSelectedInputMethod] = useState("manual"); // Current input method
   const [showReasoning, setShowReasoning] = useState(false); // State for showing/hiding reasoning section
+  const [backendResult, setBackendResult] = useState(null);
+  const [backendError, setBackendError] = useState("");
+  const [reasonText, setReasonText] = useState("");
+  const [resultId, setResultId] = useState("");
+  const [lightcurveVersion, setLightcurveVersion] = useState(0);
 
   /**
    * Scrolls to the data input section when "Try The Tool" button is clicked
@@ -80,58 +92,88 @@ const LandingPage = () => {
    * Handles the analysis process based on selected input method
    * Prepares data for ML model and simulates analysis
    */
-  const handleAnalysis = () => {
+  const handleAnalysis = async () => {
     // Validate file selection for CSV input method
     if (selectedInputMethod === "csv" && !selectedFile) return;
 
     setIsAnalyzing(true);
     setShowResults(false);
+    setBackendResult(null);
+    setBackendError("");
+    setReasonText("");
+    setResultId("");
+    setLightcurveVersion(0);
 
-    // Prepare data for ML model based on input method
-    const analysisData =
-      selectedInputMethod === "manual"
-        ? {
-            inputType: "manual",
-            parameters: {
-              k_ror: manualData.k_ror,
-              pl_prad_re: manualData.pl_prad_re,
-              pl_orbper_days: manualData.pl_orbper_days,
-              pl_insol_flux: manualData.pl_insol_flux,
-              pl_depth_ppm: manualData.pl_depth_ppm,
-              pl_trandur_hrs: manualData.pl_trandur_hrs,
-              koi_impact: manualData.koi_impact,
-              pl_tranmid_bjd: manualData.pl_tranmid_bjd,
-              st_teff_k: manualData.st_teff_k,
-              st_rad_rsun: manualData.st_rad_rsun,
-              k_srho: manualData.k_srho,
-              st_mag_tess: manualData.st_mag_tess,
-              koi_model_snr: manualData.koi_model_snr,
-            },
-          }
-        : selectedInputMethod === "dataset"
-        ? {
-            inputType: "dataset",
-            parameters: {
-              selectedDataset: datasetOptions.selectedDataset,
-              searchByName: datasetOptions.searchByName,
-              searchByDate: datasetOptions.searchByDate,
-              filters: datasetOptions.filters,
-            },
-          }
-        : {
-            inputType: "file",
-            file: selectedFile,
-          };
+    // Prepare data shape (reserved for future dataset/csv wiring)
+    // Skipped to avoid unused variable warnings
 
-    console.log("Data prepared for ML model:", analysisData);
-
-    // Simulate analysis process with timeout
-    setTimeout(() => {
+    try {
+      if (selectedInputMethod === "manual") {
+        const payload = {
+          radius_ratio: manualData.k_ror,
+          planetary_radius: manualData.pl_prad_re,
+          orbital_period: manualData.pl_orbper_days,
+          insolation_flux: manualData.pl_insol_flux,
+          transit_depth: manualData.pl_depth_ppm,
+          transit_duration: manualData.pl_trandur_hrs,
+          impact_parameter: manualData.koi_impact,
+          transit_midpoint: manualData.pl_tranmid_bjd,
+          stellar_temp: manualData.st_teff_k,
+          stellar_radius: manualData.st_rad_rsun,
+          stellar_density: manualData.k_srho,
+          stellar_mag_tess: manualData.st_mag_tess,
+          stellar_mass: 1.0,
+          stellar_logg: 4.4,
+          stellar_metallicity: 0.0,
+          transit_depth_err: 10.0,
+          model_snr: manualData.koi_model_snr,
+        };
+        const res = await manualPredict(payload);
+        setBackendResult(res);
+        setResultId(res.id || "");
+      } else if (selectedInputMethod === "raw") {
+        if (!selectedFile) throw new Error("Please select a file first.");
+        const res = await uploadRaw(selectedFile);
+        setBackendResult(res);
+        setResultId(res.id || "");
+      } else {
+        // Keep existing simulated flow for dataset/csv for now
+      }
+    } catch (e) {
+      setBackendError(e.message || "Request failed");
+    } finally {
       setIsAnalyzing(false);
       setShowResults(true);
-      setShowReasoning(false); // Reset reasoning visibility
-    }, 3000);
+      setShowReasoning(false);
+    }
   };
+
+  const handleDeleteLightcurve = async () => {
+    if (!resultId) return;
+    try {
+      await deleteLightcurve(resultId);
+      setLightcurveVersion((v) => v + 1); // bump to invalidate cached img
+    } catch (e) {
+      setBackendError(e.message || "Failed to delete lightcurve");
+    }
+  };
+
+  // Poll reasoning when toggled on and we have an id
+  useEffect(() => {
+    let timer;
+    async function tryFetch() {
+      if (!resultId) return;
+      try {
+        const r = await fetchReason(resultId);
+        setReasonText(r.reason || "");
+      } catch (_) {}
+    }
+    if (showReasoning && resultId && !reasonText) {
+      tryFetch();
+      timer = setInterval(tryFetch, 2000);
+    }
+    return () => timer && clearInterval(timer);
+  }, [showReasoning, resultId, reasonText]);
 
   /**
    * Updates manual data parameters when user adjusts sliders or inputs
@@ -1052,11 +1094,17 @@ const LandingPage = () => {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h2 className="text-3xl font-bold text-gray-200 mb-2">
-                      Verdict: Exoplanet
+                      Verdict: {backendResult?.verdict || "—"}
                     </h2>
                     <p className="text-xl font-bold text-gray-300">
-                      Confidence: 89%
+                      Confidence:{" "}
+                      {backendResult?.score != null
+                        ? `${Math.round((backendResult.score || 0) * 100)}%`
+                        : "—"}
                     </p>
+                    {backendError && (
+                      <p className="text-red-400 mt-2">{backendError}</p>
+                    )}
                   </div>
                   <button
                     onClick={() => setShowReasoning(!showReasoning)}
@@ -1077,8 +1125,7 @@ const LandingPage = () => {
                       Reasoning:
                     </h3>
                     <p className="text-gray-400 italic mb-6">
-                      This is purely AI-assisted reasoning. So you shouldn't
-                      expect the reasoning as flawless.
+                      {reasonText || "Waiting for reasoning..."}
                     </p>
 
                     <div className="space-y-6 text-gray-300">
@@ -1191,6 +1238,39 @@ const LandingPage = () => {
                           CANDIDATE." The available evidence does not support
                           the given disposition.
                         </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lightcurve Section - For raw uploads show plot and allow delete */}
+                {selectedInputMethod === "raw" && resultId && (
+                  <div className="mt-10 border-t border-slate-700 pt-6">
+                    <h3 className="text-2xl font-bold text-gray-200 mb-4">
+                      Light Curve
+                    </h3>
+                    <div className="flex flex-col md:flex-row md:items-start gap-6">
+                      <img
+                        src={`${lightcurveImageUrl(
+                          resultId
+                        )}&v=${lightcurveVersion}`}
+                        alt="Light curve plot"
+                        className="max-w-full md:max-w-md rounded border border-slate-700"
+                        onError={() => setLightcurveVersion((v) => v + 1)}
+                      />
+                      <div className="flex md:flex-col gap-3">
+                        <button
+                          onClick={() => setLightcurveVersion((v) => v + 1)}
+                          className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded"
+                        >
+                          Refresh Plot
+                        </button>
+                        <button
+                          onClick={handleDeleteLightcurve}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+                        >
+                          Delete Plot
+                        </button>
                       </div>
                     </div>
                   </div>
