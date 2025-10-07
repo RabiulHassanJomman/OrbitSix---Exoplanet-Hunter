@@ -60,3 +60,15 @@ export async function deleteLightcurve(id) {
   if (!res.ok) throw new Error(`lightcurve delete failed: ${res.status}`);
   return res.json();
 }
+
+export async function uploadCSV(file) {
+  const form = new FormData();
+  form.append("file", file);
+  const url = API_BASE_URL ? `${API_BASE_URL}/predict-csv` : "/predict-csv";
+  const res = await fetch(url, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) throw new Error(`predict-csv failed: ${res.status}`);
+  return res.json();
+}

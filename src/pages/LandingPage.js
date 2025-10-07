@@ -9,6 +9,7 @@ import {
   lightcurveImageUrl,
   manualPredict,
   uploadRaw,
+  uploadCSV,
 } from "../services/api";
 
 /**
@@ -299,6 +300,22 @@ const LandingPage = () => {
         setPredictionId(res.id || null);
         setPredictionVerdict(res.verdict || null);
         setPredictionScore(typeof res.score === "number" ? res.score : null);
+      } else if (selectedInputMethod === "csv") {
+        if (!selectedFile) {
+          throw new Error("Please select a file to upload");
+        }
+        const name = selectedFile.name.toLowerCase();
+        const isCsv = name.endsWith(".csv") || name.endsWith(".txt");
+        if (!isCsv) {
+          throw new Error("Please upload a CSV file (.csv/.txt)");
+        }
+        const res = await uploadCSV(selectedFile);
+        if (res.res) {
+          const totalExoplanets = res.res.filter(v => v === "Exoplanet").length;
+          const totalCandidates = res.res.length;
+          setPredictionVerdict(`Found ${totalExoplanets} potential exoplanets out of ${totalCandidates} candidates`);
+          setPredictionScore(totalExoplanets / totalCandidates);
+        }
       } else if (selectedInputMethod === "raw") {
         if (!selectedFile) {
           throw new Error("Please select a file to upload");
