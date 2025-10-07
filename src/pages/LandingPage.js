@@ -224,6 +224,16 @@ const LandingPage = () => {
         if (!selectedFile) {
           throw new Error("Please select a file to upload");
         }
+        const name = selectedFile.name.toLowerCase();
+        const isFits =
+          name.endsWith(".fits") ||
+          name.endsWith(".fit") ||
+          name.endsWith(".fz");
+        if (!isFits) {
+          throw new Error(
+            "Please upload a FITS light curve file (.fits/.fit/.fz)"
+          );
+        }
         const res = await uploadRaw(selectedFile);
         setPredictionId(res.id || null);
         setPredictionVerdict(res.verdict || null);
@@ -1089,15 +1099,15 @@ const LandingPage = () => {
             <>
               <div className="text-center mb-8">
                 <p className="text-gray-400 text-lg">
-                  Upload CSV file containing transit light curve data (flux vs.
-                  time). We will say whether your object of interest is
-                  exoplanet or not from given data.
+                  Upload a FITS light curve file from Kepler, K2, or TESS. We
+                  will analyze it and tell you whether the object of interest is
+                  an exoplanet.
                 </p>
               </div>
               <div className="bg-slate-800 border-2 border-dashed border-slate-600 rounded-lg p-12 text-center">
                 <div className="flex flex-col items-center">
                   <h3 className="text-xl font-semibold mb-4">
-                    Upload a CSV file
+                    Upload a FITS file
                   </h3>
                   <p className="text-gray-400 mb-4">
                     or Drag and Drop the file here
@@ -1107,7 +1117,7 @@ const LandingPage = () => {
                     <input
                       type="file"
                       className="hidden"
-                      accept=".csv"
+                      accept=".fits,.fit,.fz,application/fits,image/fits"
                       onChange={handleFileUpload}
                     />
                   </label>
