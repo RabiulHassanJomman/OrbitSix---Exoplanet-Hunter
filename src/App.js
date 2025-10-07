@@ -1,5 +1,4 @@
 // Main App component that handles routing for the OrbitSix exoplanet detection platform
-import React from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import HowItWorks from "./pages/HowItWorks";
 import LandingPage from "./pages/LandingPage";
@@ -19,6 +18,8 @@ import Tutorial from "./pages/Tutorial";
  * - "/analysis" - Dedicated analysis tool page
  */
 function App() {
+  // Add this console.log at the top of your App component
+  console.log("API Base URL:", process.env.REACT_APP_API_BASE_URL);
   return (
     <Router>
       <div className="App">
