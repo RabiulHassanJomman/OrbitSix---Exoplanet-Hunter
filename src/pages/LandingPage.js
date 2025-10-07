@@ -8,8 +8,8 @@ import {
   fetchReason,
   lightcurveImageUrl,
   manualPredict,
-  uploadRaw,
   uploadCSV,
+  uploadRaw,
 } from "../services/api";
 
 /**
@@ -311,9 +311,13 @@ const LandingPage = () => {
         }
         const res = await uploadCSV(selectedFile);
         if (res.res) {
-          const totalExoplanets = res.res.filter(v => v === "Exoplanet").length;
+          const totalExoplanets = res.res.filter(
+            (v) => v === "Exoplanet"
+          ).length;
           const totalCandidates = res.res.length;
-          setPredictionVerdict(`Found ${totalExoplanets} potential exoplanets out of ${totalCandidates} candidates`);
+          setPredictionVerdict(
+            `Found ${totalExoplanets} potential exoplanets out of ${totalCandidates} candidates`
+          );
           setPredictionScore(totalExoplanets / totalCandidates);
         }
       } else if (selectedInputMethod === "raw") {
