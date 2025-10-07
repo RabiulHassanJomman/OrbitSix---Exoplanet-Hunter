@@ -3,8 +3,8 @@
 function normalizeBaseUrl(base) {
   if (!base) return "";
   const trimmed = String(base).trim().replace(/\/+$/, "");
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
+  // Always force HTTPS by removing any existing protocol and adding https://
+  return `https://${trimmed.replace(/^https?:\/\//, "")}`;
 }
 
 const API_BASE_URL = normalizeBaseUrl(process.env.REACT_APP_API_BASE_URL || "");
