@@ -39,6 +39,11 @@ const LandingPage = () => {
   const [predictionError, setPredictionError] = useState("");
   const [reasonText, setReasonText] = useState("");
   const [lightcurveUrl, setLightcurveUrl] = useState("");
+  const [csvDragging, setCsvDragging] = useState(false);
+  const [rawDragging, setRawDragging] = useState(false);
+  const [resetNotice, setResetNotice] = useState("");
+  const [confirmSwitchOpen, setConfirmSwitchOpen] = useState(false);
+  const [pendingMethod, setPendingMethod] = useState(null);
 
   /**
    * Scrolls to the data input section when "Try The Tool" button is clicked
@@ -87,8 +92,82 @@ const LandingPage = () => {
    * @param {Event} event - File input change event
    */
   const handleFileUpload = (event) => {
-    const file = event.target.files[0];
+    const file = event?.target?.files?.[0];
+    if (!file) return;
     setSelectedFile(file);
+  };
+
+  const setFileFromDrop = (file, mode) => {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    if (mode === "csv") {
+      if (!(name.endsWith(".csv") || name.endsWith(".txt"))) {
+        setPredictionError("Please drop a CSV (.csv/.txt) file");
+        return;
+      }
+    }
+    if (mode === "raw") {
+      if (
+        !(
+          name.endsWith(".fits") ||
+          name.endsWith(".fit") ||
+          name.endsWith(".fz")
+        )
+      ) {
+        setPredictionError("Please drop a FITS file (.fits/.fit/.fz)");
+        return;
+      }
+    }
+    setPredictionError("");
+    setSelectedFile(file);
+  };
+
+  const actuallyChangeInputMethod = (method) => {
+    // reset previous results/state when switching input methods
+    if (
+      showResults ||
+      predictionId ||
+      predictionVerdict ||
+      lightcurveUrl ||
+      predictionError ||
+      (Array.isArray(lightCurveData) && lightCurveData.length > 0)
+    ) {
+      setResetNotice(
+        "Previous results have been cleared after switching input method."
+      );
+      window.clearTimeout(actuallyChangeInputMethod.__t);
+      actuallyChangeInputMethod.__t = window.setTimeout(
+        () => setResetNotice(""),
+        4000
+      );
+    }
+    setSelectedInputMethod(method);
+    setSelectedFile(null);
+    setIsAnalyzing(false);
+    setShowResults(false);
+    setLightCurveData([]);
+    setPredictionError("");
+    setPredictionId(null);
+    setPredictionVerdict(null);
+    setPredictionScore(null);
+    setReasonText("");
+    setLightcurveUrl("");
+  };
+
+  const requestChangeInputMethod = (method) => {
+    const hasResults =
+      showResults ||
+      predictionId ||
+      predictionVerdict ||
+      lightcurveUrl ||
+      predictionError ||
+      (Array.isArray(lightCurveData) && lightCurveData.length > 0);
+    if (hasResults) {
+      setPendingMethod(method);
+      setConfirmSwitchOpen(true);
+      return;
+    }
+    actuallyChangeInputMethod(method);
   };
 
   /**
@@ -310,6 +389,56 @@ const LandingPage = () => {
 
       <Header />
 
+      {confirmSwitchOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setConfirmSwitchOpen(false)}
+          />
+          <div className="relative bg-slate-800 border border-slate-700 rounded-lg w-full max-w-md mx-auto p-6 shadow-xl">
+            <h3 className="text-lg font-semibold mb-2">Switch input method?</h3>
+            <p className="text-sm text-gray-300 mb-6">
+              Switching input method will clear the previous results. Continue?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setConfirmSwitchOpen(false);
+                }}
+                className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white"
+              >
+                No
+              </button>
+              <button
+                onClick={() => {
+                  const target = pendingMethod;
+                  setConfirmSwitchOpen(false);
+                  setPendingMethod(null);
+                  if (target) {
+                    actuallyChangeInputMethod(target);
+                  }
+                }}
+                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Yes, switch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resetNotice && (
+        <div
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="shadow-lg bg-amber-100/95 text-amber-900 border border-amber-300 rounded-md px-5 py-3 text-sm">
+            {resetNotice}
+          </div>
+        </div>
+      )}
+
       {/* Hero Section - Main call-to-action area */}
       <section className="relative pt-24 pb-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
@@ -350,7 +479,7 @@ const LandingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
             {/* Manual Data Input Card */}
             <div
-              onClick={() => setSelectedInputMethod("manual")}
+              onClick={() => requestChangeInputMethod("manual")}
               className={`bg-slate-800 border-2 rounded-lg p-6 hover:border-blue-500 transition-colors cursor-pointer ${
                 selectedInputMethod === "manual"
                   ? "border-blue-500"
@@ -369,7 +498,7 @@ const LandingPage = () => {
 
             {/* CSV File Upload Card */}
             <div
-              onClick={() => setSelectedInputMethod("csv")}
+              onClick={() => requestChangeInputMethod("csv")}
               className={`bg-slate-800 border-2 rounded-lg p-6 hover:border-blue-500 transition-colors cursor-pointer ${
                 selectedInputMethod === "csv"
                   ? "border-blue-500"
@@ -388,7 +517,7 @@ const LandingPage = () => {
 
             {/* Existing Dataset Card */}
             <div
-              onClick={() => setSelectedInputMethod("dataset")}
+              onClick={() => requestChangeInputMethod("dataset")}
               className={`bg-slate-800 border-2 rounded-lg p-6 hover:border-blue-500 transition-colors cursor-pointer ${
                 selectedInputMethod === "dataset"
                   ? "border-blue-500"
@@ -407,7 +536,7 @@ const LandingPage = () => {
 
             {/* Raw Light Curve Data Card */}
             <div
-              onClick={() => setSelectedInputMethod("raw")}
+              onClick={() => requestChangeInputMethod("raw")}
               className={`bg-slate-800 border-2 rounded-lg p-6 hover:border-blue-500 transition-colors cursor-pointer ${
                 selectedInputMethod === "raw"
                   ? "border-blue-500"
@@ -1042,7 +1171,35 @@ const LandingPage = () => {
                   CSV file having the predictions.
                 </p>
               </div>
-              <div className="bg-slate-800 border-2 border-dashed border-slate-600 rounded-lg p-12 text-center">
+              <div
+                className={`bg-slate-800 rounded-lg p-12 text-center border-2 border-dashed ${
+                  csvDragging
+                    ? "border-blue-500 bg-slate-800/70"
+                    : "border-slate-600"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCsvDragging(true);
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCsvDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCsvDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCsvDragging(false);
+                  const file = e.dataTransfer?.files?.[0];
+                  setFileFromDrop(file, "csv");
+                }}
+              >
                 <div className="flex flex-col items-center">
                   <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mb-4">
                     <svg
@@ -1104,7 +1261,35 @@ const LandingPage = () => {
                   an exoplanet.
                 </p>
               </div>
-              <div className="bg-slate-800 border-2 border-dashed border-slate-600 rounded-lg p-12 text-center">
+              <div
+                className={`bg-slate-800 rounded-lg p-12 text-center border-2 border-dashed ${
+                  rawDragging
+                    ? "border-blue-500 bg-slate-800/70"
+                    : "border-slate-600"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setRawDragging(true);
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setRawDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setRawDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setRawDragging(false);
+                  const file = e.dataTransfer?.files?.[0];
+                  setFileFromDrop(file, "raw");
+                }}
+              >
                 <div className="flex flex-col items-center">
                   <h3 className="text-xl font-semibold mb-4">
                     Upload a FITS file
