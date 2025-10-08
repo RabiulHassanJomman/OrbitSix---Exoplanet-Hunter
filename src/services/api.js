@@ -68,9 +68,8 @@ export async function uploadCSV(file) {
 
 export const getReasoning = async (predictionId) => {
   try {
-    const response = await fetch(
-      `http://your-backend-url/reason?id=${predictionId}`
-    );
+    const url = `${API_BASE_URL}/reason?id=${predictionId}`;
+    const response = await fetch(url);
     const data = await response.json();
     return data.reason; // Returns the reasoning string
   } catch (error) {
