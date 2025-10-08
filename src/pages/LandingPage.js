@@ -104,7 +104,7 @@ const LandingPage = () => {
 
       try {
         const r = await fetchReason(predId);
-        console.log(`Reasoning poll attempt ${attempt + 1}:`, r.reason);
+        console.log(`Reasoning poll attempt ${attempt + 1}:`);
 
         if (r.reason) {
           // Check again before setting state (in case cancelled during fetch)
