@@ -192,6 +192,7 @@ const LandingPage = () => {
     // Prepare data for ML model based on input method
     const analysisData =
       selectedInputMethod === "manual"
+
         ? {
             inputType: "manual",
             parameters: {

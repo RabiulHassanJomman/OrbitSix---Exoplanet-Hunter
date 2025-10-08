@@ -1,21 +1,6 @@
 // Lightweight API client for backend connectivity
 // If REACT_APP_API_BASE_URL is not set, use relative URLs and rely on CRA proxy in development.
-function normalizeBaseUrl(base) {
-  if (!base) return "";
-
-  // Add console.log to debug the input value
-  console.log("Original base URL:", base);
-
-  const trimmed = String(base).trim().replace(/\/+$/, "");
-
-  // Add console.log to debug the transformed URL
-  const finalUrl = `https://${trimmed.replace(/^https?:\/\//, "")}`;
-  console.log("Transformed URL:", finalUrl);
-
-  return finalUrl;
-}
-
-const API_BASE_URL = normalizeBaseUrl(process.env.REACT_APP_API_BASE_URL || "");
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 export function getApiBaseUrl() {
   return API_BASE_URL;
