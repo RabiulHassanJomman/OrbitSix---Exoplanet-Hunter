@@ -1398,6 +1398,11 @@ const LandingPage = () => {
 
                       const next = !showReasoning;
                       setShowReasoning(next);
+
+                      console.log(next);
+                      console.log(predictionId);
+                      console.log(reasonText);
+
                       if (next && predictionId && !reasonText) {
                         try {
                           const r = await fetchReason(predictionId);
