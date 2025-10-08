@@ -6,6 +6,7 @@ import LightCurveChart from "../components/LightCurveChart";
 import {
   deleteLightcurve,
   fetchReason,
+  getReasoning,
   lightcurveImageUrl,
   manualPredict,
   uploadCSV,
@@ -344,6 +345,7 @@ const LandingPage = () => {
           setLightcurveUrl(lightcurveImageUrl(res.id));
         }
       }
+
       setShowResults(true);
       setShowReasoning(false);
     } catch (err) {
@@ -1392,7 +1394,7 @@ const LandingPage = () => {
                     </p>
                   </div>
                   <button
-                    onClick={setTimeout(async () => {
+                    onClick={async () => {
                       const next = !showReasoning;
                       setShowReasoning(next);
                       if (next && predictionId && !reasonText) {
@@ -1403,7 +1405,7 @@ const LandingPage = () => {
                           setReasonText("Could not fetch reasoning.");
                         }
                       }
-                    }, 10000)}
+                    }}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
                       showReasoning
                         ? "bg-red-600 hover:bg-red-700 text-white"
