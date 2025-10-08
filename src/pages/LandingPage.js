@@ -1565,8 +1565,63 @@ const LandingPage = () => {
                       reasonText &&
                       reasonText !== "Could not fetch reasoning." &&
                       !reasonText.startsWith("Could not fetch reasoning.") && (
-                        <div className="mb-6 text-gray-300 whitespace-pre-line">
-                          {reasonText}
+                        <div className="mb-6 text-gray-300 reasoning-content">
+                          {reasonText.split("\n").map((line, index) => {
+                            // Check if line is a main heading (starts with # or is numbered like "1.")
+                            if (
+                              line.trim().match(/^#+\s+/) ||
+                              line.trim().match(/^\d+\.\s+\w+/)
+                            ) {
+                              return (
+                                <h4
+                                  key={index}
+                                  className="text-xl font-bold text-gray-100 mt-6 mb-3"
+                                >
+                                  {line.replace(/^#+\s+/, "").trim()}
+                                </h4>
+                              );
+                            }
+                            // Check if line is a subheading (starts with ** or uppercase followed by colon)
+                            else if (
+                              line.trim().match(/^\*\*.*\*\*:?/) ||
+                              line.trim().match(/^[A-Z][^.!?]*:/)
+                            ) {
+                              return (
+                                <h5
+                                  key={index}
+                                  className="text-lg font-semibold text-gray-200 mt-4 mb-2"
+                                >
+                                  {line.replace(/^\*\*|\*\*$/g, "").trim()}
+                                </h5>
+                              );
+                            }
+                            // Check if line is a list item
+                            else if (line.trim().match(/^[-•*]\s+/)) {
+                              return (
+                                <li
+                                  key={index}
+                                  className="ml-6 mb-2 text-gray-300"
+                                >
+                                  {line.replace(/^[-•*]\s+/, "").trim()}
+                                </li>
+                              );
+                            }
+                            // Regular paragraph
+                            else if (line.trim().length > 0) {
+                              return (
+                                <p
+                                  key={index}
+                                  className="mb-3 text-gray-300 leading-relaxed"
+                                >
+                                  {line.trim()}
+                                </p>
+                              );
+                            }
+                            // Empty line
+                            else {
+                              return <div key={index} className="h-2"></div>;
+                            }
+                          })}
                         </div>
                       )}
 
