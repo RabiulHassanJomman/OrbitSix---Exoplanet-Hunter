@@ -1403,6 +1403,7 @@ const LandingPage = () => {
 
                       // If closing reasoning, just toggle and return
                       if (!next) {
+                        setIsLoadingReasoning(false);
                         return;
                       }
 
@@ -1411,30 +1412,69 @@ const LandingPage = () => {
                       console.log(reasonText);
 
                       // If we already have reasoning, don't fetch again
-                      if (reasonText) {
+                      if (
+                        reasonText &&
+                        reasonText !== "Could not fetch reasoning."
+                      ) {
                         return;
                       }
 
-                      // Start loading and fetch reasoning
+                      // Start loading and fetch reasoning with polling
                       setIsLoadingReasoning(true);
                       setReasonText(""); // Clear any previous error messages
 
-                      try {
-                        const r = await fetchReason(predictionId);
-                        console.log(r.reason);
+                      const pollReasoning = async () => {
+                        let attempts = 0;
+                        const maxAttempts = 60; // Poll for up to 60 attempts (5 minutes with 5s interval)
+                        const pollInterval = 5000; // 5 seconds
 
-                        if (r.reason) {
-                          setReasonText(r.reason);
-                        } else {
-                          // Reasoning not ready yet
-                          setReasonText("");
+                        while (attempts < maxAttempts) {
+                          try {
+                            const r = await fetchReason(predictionId);
+                            console.log(
+                              "Poll attempt",
+                              attempts + 1,
+                              ":",
+                              r.reason
+                            );
+
+                            if (r.reason) {
+                              setReasonText(r.reason);
+                              setIsLoadingReasoning(false);
+                              return; // Stop polling once we get the reasoning
+                            }
+
+                            // Wait before next attempt
+                            await new Promise((resolve) =>
+                              setTimeout(resolve, pollInterval)
+                            );
+                            attempts++;
+                          } catch (e) {
+                            console.error("Error fetching reasoning:", e);
+                            attempts++;
+
+                            // If we've tried multiple times and still failing, show error
+                            if (attempts >= 3) {
+                              setReasonText("Could not fetch reasoning.");
+                              setIsLoadingReasoning(false);
+                              return;
+                            }
+
+                            // Wait before retry
+                            await new Promise((resolve) =>
+                              setTimeout(resolve, pollInterval)
+                            );
+                          }
                         }
-                      } catch (e) {
-                        console.error("Error fetching reasoning:", e);
-                        setReasonText("Could not fetch reasoning.");
-                      } finally {
+
+                        // Max attempts reached
+                        setReasonText(
+                          "Could not fetch reasoning. The reasoning is taking longer than expected."
+                        );
                         setIsLoadingReasoning(false);
-                      }
+                      };
+
+                      pollReasoning();
                     }}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
                       showReasoning
@@ -1513,7 +1553,9 @@ const LandingPage = () => {
                     {isLoadingReasoning && (
                       <div className="flex flex-col items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                        <p className="text-gray-300">Fetching reasoning...</p>
+                        <p className="text-gray-300">
+                          Reasoning is getting ready, please wait...
+                        </p>
                       </div>
                     )}
 
@@ -1521,47 +1563,19 @@ const LandingPage = () => {
                     {!isLoadingReasoning &&
                       predictionId &&
                       reasonText &&
-                      reasonText !== "Could not fetch reasoning." && (
+                      reasonText !== "Could not fetch reasoning." &&
+                      !reasonText.startsWith("Could not fetch reasoning.") && (
                         <div className="mb-6 text-gray-300 whitespace-pre-line">
                           {reasonText}
                         </div>
                       )}
 
-                    {/* Show "reasoning not ready" message */}
-                    {!isLoadingReasoning && !reasonText && (
-                      <div className="bg-yellow-900/20 border border-yellow-600/50 rounded-lg p-6 mb-6">
-                        <div className="flex items-start">
-                          <svg
-                            className="w-6 h-6 text-yellow-500 mr-3 flex-shrink-0 mt-1"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                          <div>
-                            <h4 className="text-yellow-400 font-semibold mb-2">
-                              Reasoning is Getting Ready
-                            </h4>
-                            <p className="text-gray-300">
-                              The AI reasoning for this prediction is still
-                              being generated. This may take a few moments.
-                              Please try again in a moment by clicking the "VIEW
-                              REASONING" button.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Show error message */}
                     {!isLoadingReasoning &&
-                      reasonText === "Could not fetch reasoning." && (
+                      (reasonText === "Could not fetch reasoning." ||
+                        reasonText?.startsWith(
+                          "Could not fetch reasoning."
+                        )) && (
                         <div className="bg-red-900/20 border border-red-600/50 rounded-lg p-6 mb-6">
                           <div className="flex items-start">
                             <svg
@@ -1581,11 +1595,7 @@ const LandingPage = () => {
                               <h4 className="text-red-400 font-semibold mb-2">
                                 Error Loading Reasoning
                               </h4>
-                              <p className="text-gray-300">
-                                Could not fetch reasoning. Please try again
-                                later or contact support if the problem
-                                persists.
-                              </p>
+                              <p className="text-gray-300">{reasonText}</p>
                             </div>
                           </div>
                         </div>
