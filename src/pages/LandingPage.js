@@ -353,7 +353,7 @@ const LandingPage = () => {
         }catch(error){
           console.error("Error fetching reasoning:", error);
         }
-      }, 10000);
+      }, 30000);
 
       setShowResults(true);
       setShowReasoning(false);
