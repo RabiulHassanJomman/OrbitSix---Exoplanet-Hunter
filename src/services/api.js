@@ -68,7 +68,7 @@ export async function uploadCSV(file) {
 
 export const getReasoning = async (predictionId) => {
   try {
-    const response = await fetch(`http://${API_BASE_URL}/reason?id=${predictionId}`, {
+    const response = await fetch(`https://${API_BASE_URL}/reason?id=${predictionId}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
