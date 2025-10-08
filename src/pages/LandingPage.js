@@ -301,11 +301,14 @@ const LandingPage = () => {
         setPredictionVerdict(res.verdict || null);
         setPredictionScore(typeof res.score === "number" ? res.score : null);
 
-        const response = await fetch(
-          `https://your-backend-url/reason?id=${predictionId}`
-        );
-        const data = await response.json();
-        console.log(data.reason);
+        console.log(predictionId);
+        if (predictionId !== null) {
+          const response = await fetch(
+            `https://your-backend-url/reason?id=${predictionId}`
+          );
+          const data = await response.json();
+          console.log(data.reason);
+        }
       } else if (selectedInputMethod === "csv") {
         if (!selectedFile) {
           throw new Error("Please select a file to upload");
