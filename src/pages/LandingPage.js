@@ -345,16 +345,6 @@ const LandingPage = () => {
           setLightcurveUrl(lightcurveImageUrl(res.id));
         }
       }
-
-      setTimeout(async () => {
-        try{
-          const reasoning = await getReasoning(predictionId);
-          console.log(reasoning);
-        }catch(error){
-          console.error("Error fetching reasoning:", error);
-        }
-      }, 60000);
-
       setShowResults(true);
       setShowReasoning(false);
     } catch (err) {
@@ -1403,7 +1393,7 @@ const LandingPage = () => {
                     </p>
                   </div>
                   <button
-                    onClick={async () => {
+                    onClick={setTimeout(async () => {
                       const next = !showReasoning;
                       setShowReasoning(next);
                       if (next && predictionId && !reasonText) {
@@ -1414,7 +1404,7 @@ const LandingPage = () => {
                           setReasonText("Could not fetch reasoning.");
                         }
                       }
-                    }}
+                    }, 10000)}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
                       showReasoning
                         ? "bg-red-600 hover:bg-red-700 text-white"
