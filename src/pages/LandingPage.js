@@ -353,8 +353,6 @@ const LandingPage = () => {
     } finally {
       setIsAnalyzing(false);
     }
-
-
   };
 
   /**
@@ -1403,14 +1401,12 @@ const LandingPage = () => {
                       console.log(predictionId);
                       console.log(reasonText);
 
-                      if (next && predictionId) {
-                        try {
-                          const r = await fetchReason(predictionId);
-                          console.log(r.reason);
-                          setReasonText(r.reason || "");
-                        } catch (e) {
-                          setReasonText("Could not fetch reasoning.");
-                        }
+                      try {
+                        const r = await fetchReason(predictionId);
+                        console.log(r.reason);
+                        setReasonText(r.reason || "");
+                      } catch (e) {
+                        setReasonText("Could not fetch reasoning.");
                       }
                     }}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
