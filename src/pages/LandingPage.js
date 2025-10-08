@@ -6,7 +6,6 @@ import LightCurveChart from "../components/LightCurveChart";
 import {
   deleteLightcurve,
   fetchReason,
-  getReasoning,
   lightcurveImageUrl,
   manualPredict,
   uploadCSV,
@@ -1395,6 +1394,8 @@ const LandingPage = () => {
                   </div>
                   <button
                     onClick={async () => {
+                      console.log(predictionId);
+
                       const next = !showReasoning;
                       setShowReasoning(next);
                       if (next && predictionId && !reasonText) {
