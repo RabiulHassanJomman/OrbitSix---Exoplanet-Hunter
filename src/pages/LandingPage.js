@@ -33,6 +33,7 @@ const LandingPage = () => {
   const [showResults, setShowResults] = useState(false); // Controls results display
   const [selectedInputMethod, setSelectedInputMethod] = useState("manual"); // Current input method
   const [showReasoning, setShowReasoning] = useState(false); // State for showing/hiding reasoning section
+  const [isLoadingReasoning, setIsLoadingReasoning] = useState(false); // Loading state for reasoning
   const [lightCurveData, setLightCurveData] = useState([]); // Mock or backend-provided light curve
   const [predictionId, setPredictionId] = useState(null);
   const [predictionVerdict, setPredictionVerdict] = useState(null);
@@ -153,6 +154,8 @@ const LandingPage = () => {
     setPredictionScore(null);
     setReasonText("");
     setLightcurveUrl("");
+    setIsLoadingReasoning(false);
+    setShowReasoning(false);
   };
 
   const requestChangeInputMethod = (method) => {
@@ -188,6 +191,7 @@ const LandingPage = () => {
     setPredictionScore(null);
     setReasonText("");
     setLightcurveUrl("");
+    setIsLoadingReasoning(false);
 
     // Prepare data for ML model based on input method
     const analysisData =
@@ -1397,16 +1401,39 @@ const LandingPage = () => {
                       const next = !showReasoning;
                       setShowReasoning(next);
 
+                      // If closing reasoning, just toggle and return
+                      if (!next) {
+                        return;
+                      }
+
                       console.log(next);
                       console.log(predictionId);
                       console.log(reasonText);
 
+                      // If we already have reasoning, don't fetch again
+                      if (reasonText) {
+                        return;
+                      }
+
+                      // Start loading and fetch reasoning
+                      setIsLoadingReasoning(true);
+                      setReasonText(""); // Clear any previous error messages
+
                       try {
                         const r = await fetchReason(predictionId);
                         console.log(r.reason);
-                        setReasonText(r.reason || "");
+
+                        if (r.reason) {
+                          setReasonText(r.reason);
+                        } else {
+                          // Reasoning not ready yet
+                          setReasonText("");
+                        }
                       } catch (e) {
+                        console.error("Error fetching reasoning:", e);
                         setReasonText("Could not fetch reasoning.");
+                      } finally {
+                        setIsLoadingReasoning(false);
                       }
                     }}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
@@ -1481,13 +1508,90 @@ const LandingPage = () => {
                       This is purely AI-assisted reasoning. So you shouldn't
                       expect the reasoning as flawless.
                     </p>
-                    {predictionId && reasonText && (
-                      <div className="mb-6 text-gray-300 whitespace-pre-line">
-                        {reasonText}
+
+                    {/* Loading state */}
+                    {isLoadingReasoning && (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                        <p className="text-gray-300">Fetching reasoning...</p>
                       </div>
                     )}
 
-                    {!reasonText && (
+                    {/* Show reasoning when available */}
+                    {!isLoadingReasoning &&
+                      predictionId &&
+                      reasonText &&
+                      reasonText !== "Could not fetch reasoning." && (
+                        <div className="mb-6 text-gray-300 whitespace-pre-line">
+                          {reasonText}
+                        </div>
+                      )}
+
+                    {/* Show "reasoning not ready" message */}
+                    {!isLoadingReasoning && !reasonText && (
+                      <div className="bg-yellow-900/20 border border-yellow-600/50 rounded-lg p-6 mb-6">
+                        <div className="flex items-start">
+                          <svg
+                            className="w-6 h-6 text-yellow-500 mr-3 flex-shrink-0 mt-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <div>
+                            <h4 className="text-yellow-400 font-semibold mb-2">
+                              Reasoning is Getting Ready
+                            </h4>
+                            <p className="text-gray-300">
+                              The AI reasoning for this prediction is still
+                              being generated. This may take a few moments.
+                              Please try again in a moment by clicking the "VIEW
+                              REASONING" button.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show error message */}
+                    {!isLoadingReasoning &&
+                      reasonText === "Could not fetch reasoning." && (
+                        <div className="bg-red-900/20 border border-red-600/50 rounded-lg p-6 mb-6">
+                          <div className="flex items-start">
+                            <svg
+                              className="w-6 h-6 text-red-500 mr-3 flex-shrink-0 mt-1"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            <div>
+                              <h4 className="text-red-400 font-semibold mb-2">
+                                Error Loading Reasoning
+                              </h4>
+                              <p className="text-gray-300">
+                                Could not fetch reasoning. Please try again
+                                later or contact support if the problem
+                                persists.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                    {!isLoadingReasoning && !reasonText && (
                       <div className="space-y-6 text-gray-300">
                         {/* Ideal Planetary Parameters */}
                         <div>
