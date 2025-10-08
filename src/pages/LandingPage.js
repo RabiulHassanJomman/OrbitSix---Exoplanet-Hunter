@@ -1401,6 +1401,7 @@ const LandingPage = () => {
                       if (next && predictionId && !reasonText) {
                         try {
                           const r = await fetchReason(predictionId);
+                          console.log(r.reason);
                           setReasonText(r?.reason || "");
                         } catch (e) {
                           setReasonText("Could not fetch reasoning.");
