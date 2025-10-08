@@ -302,7 +302,7 @@ const LandingPage = () => {
         setPredictionScore(typeof res.score === "number" ? res.score : null);
 
         const response = await fetch(
-          `http://your-backend-url/reason?id=${predictionId}`
+          `https://your-backend-url/reason?id=${predictionId}`
         );
         const data = await response.json();
         console.log(data.reason);
