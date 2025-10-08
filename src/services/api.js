@@ -78,10 +78,8 @@ export const getReasoning = async (predictionId) => {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-
-    console.log(response)
     const data = await response.json();
-    console.log(data);
+    console.log("reasoning:", data.reason);
     return data.reason;
   } catch (error) {
     console.error('Error fetching reasoning:', error);
