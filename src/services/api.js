@@ -71,6 +71,7 @@ export const getReasoning = async (predictionId) => {
     const url = `${API_BASE_URL}/reason?id=${predictionId}`;
     const response = await fetch(url);
     const data = await response.json();
+    console.log(data);
     return data.reason; // Returns the reasoning string
   } catch (error) {
     console.error("Error fetching reasoning:", error);
