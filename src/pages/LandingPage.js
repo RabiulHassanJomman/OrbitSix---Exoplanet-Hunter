@@ -303,8 +303,6 @@ const LandingPage = () => {
         setPredictionScore(typeof res.score === "number" ? res.score : null);
 
         console.log(predictionId);
-        const reasoning = await getReasoning(predictionId);
-        console.log(reasoning);
       } else if (selectedInputMethod === "csv") {
         if (!selectedFile) {
           throw new Error("Please select a file to upload");
@@ -347,6 +345,16 @@ const LandingPage = () => {
           setLightcurveUrl(lightcurveImageUrl(res.id));
         }
       }
+
+      setTimeout(async () => {
+        try{
+          const reasoning = await getReasoning(predictionId);
+          console.log(reasoning);
+        }catch(error){
+          console.error("Error fetching reasoning:", error);
+        }
+      }, 10000);
+
       setShowResults(true);
       setShowReasoning(false);
     } catch (err) {
@@ -355,6 +363,8 @@ const LandingPage = () => {
     } finally {
       setIsAnalyzing(false);
     }
+
+
   };
 
   /**
