@@ -6,7 +6,6 @@ import LightCurveChart from "../components/LightCurveChart";
 import {
   deleteLightcurve,
   fetchReason,
-  getReasoning,
   lightcurveImageUrl,
   manualPredict,
   uploadCSV,
