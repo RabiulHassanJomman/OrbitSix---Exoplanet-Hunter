@@ -1407,6 +1407,9 @@ const LandingPage = () => {
                           setReasonText("Could not fetch reasoning.");
                         }
                       }
+                      else {
+                        setReasonText("Reasoning not available");
+                      }
                     }}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
                       showReasoning
