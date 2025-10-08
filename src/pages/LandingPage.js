@@ -192,7 +192,6 @@ const LandingPage = () => {
     // Prepare data for ML model based on input method
     const analysisData =
       selectedInputMethod === "manual"
-
         ? {
             inputType: "manual",
             parameters: {
@@ -301,6 +300,12 @@ const LandingPage = () => {
         setPredictionId(res.id || null);
         setPredictionVerdict(res.verdict || null);
         setPredictionScore(typeof res.score === "number" ? res.score : null);
+
+        const response = await fetch(
+          `http://your-backend-url/reason?id=${predictionId}`
+        );
+        const data = await response.json();
+        console.log(data.reason);
       } else if (selectedInputMethod === "csv") {
         if (!selectedFile) {
           throw new Error("Please select a file to upload");
