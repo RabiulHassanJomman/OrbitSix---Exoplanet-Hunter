@@ -68,13 +68,23 @@ export async function uploadCSV(file) {
 
 export const getReasoning = async (predictionId) => {
   try {
-    const url = `${API_BASE_URL}/reason?id=${predictionId}`;
-    const response = await fetch(url);
+    const response = await fetch(`http://${API_BASE_URL}/reason?id=${predictionId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    console.log(response)
     const data = await response.json();
     console.log(data);
-    return data.reason; // Returns the reasoning string
+    return data.reason;
   } catch (error) {
-    console.error("Error fetching reasoning:", error);
-    return "";
+    console.error('Error fetching reasoning:', error);
+    return '';
   }
 };
