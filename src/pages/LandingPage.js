@@ -6,6 +6,7 @@ import LightCurveChart from "../components/LightCurveChart";
 import {
   deleteLightcurve,
   fetchReason,
+  getReasoning,
   lightcurveImageUrl,
   manualPredict,
   uploadCSV,
@@ -302,13 +303,8 @@ const LandingPage = () => {
         setPredictionScore(typeof res.score === "number" ? res.score : null);
 
         console.log(predictionId);
-        if (predictionId !== null) {
-          const response = await fetch(
-            `https://your-backend-url/reason?id=${predictionId}`
-          );
-          const data = await response.json();
-          console.log(data.reason);
-        }
+        const reasoning = await getReasoning(predictionId);
+        console.log(reasoning);
       } else if (selectedInputMethod === "csv") {
         if (!selectedFile) {
           throw new Error("Please select a file to upload");

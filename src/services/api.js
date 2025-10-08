@@ -65,3 +65,16 @@ export async function uploadCSV(file) {
   if (!res.ok) throw new Error(`predict-csv failed: ${res.status}`);
   return res.json();
 }
+
+export const getReasoning = async (predictionId) => {
+  try {
+    const response = await fetch(
+      `http://your-backend-url/reason?id=${predictionId}`
+    );
+    const data = await response.json();
+    return data.reason; // Returns the reasoning string
+  } catch (error) {
+    console.error("Error fetching reasoning:", error);
+    return "";
+  }
+};
