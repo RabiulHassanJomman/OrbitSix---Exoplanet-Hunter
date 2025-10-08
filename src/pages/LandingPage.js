@@ -1403,7 +1403,7 @@ const LandingPage = () => {
                       console.log(predictionId);
                       console.log(reasonText);
 
-                      if (next && predictionId && !reasonText) {
+                      if (next && predictionId && reasonText !== "Reasoning not available") {
                         try {
                           const r = await fetchReason(predictionId);
                           console.log(r.reason);
