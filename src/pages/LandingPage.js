@@ -1,6 +1,6 @@
 // Main landing page component with ML model interface for exoplanet detection
 import { marked } from "marked";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
 import LightCurveChart from "../components/LightCurveChart";
@@ -61,6 +61,9 @@ const LandingPage = () => {
   const [confirmSwitchOpen, setConfirmSwitchOpen] = useState(false);
   const [pendingMethod, setPendingMethod] = useState(null);
 
+  // Ref to track active reasoning request cancellation
+  const reasoningAbortController = useRef(null);
+
   /**
    * Scrolls to the data input section when "Try The Tool" button is clicked
    */
@@ -68,6 +71,79 @@ const LandingPage = () => {
     const element = document.getElementById("data-input-menu");
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  /**
+   * Automatically fetch reasoning for a prediction with polling
+   * Can be cancelled if a new analysis starts
+   */
+  const fetchReasoningAutomatically = async (predId) => {
+    // Cancel any existing reasoning request
+    if (reasoningAbortController.current) {
+      reasoningAbortController.current.cancelled = true;
+    }
+
+    // Create new abort controller for this request
+    const controller = { cancelled: false };
+    reasoningAbortController.current = controller;
+
+    setIsLoadingReasoning(true);
+    setShowReasoning(true);
+    setReasonText("");
+
+    const maxAttempts = 60; // Poll for up to 60 attempts (5 minutes with 5s interval)
+    const pollInterval = 5000; // 5 seconds
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Check if this request was cancelled
+      if (controller.cancelled) {
+        console.log("Reasoning request cancelled");
+        return;
+      }
+
+      try {
+        const r = await fetchReason(predId);
+        console.log(`Reasoning poll attempt ${attempt + 1}:`, r.reason);
+
+        if (r.reason) {
+          // Check again before setting state (in case cancelled during fetch)
+          if (!controller.cancelled) {
+            setReasonText(r.reason);
+            setIsLoadingReasoning(false);
+          }
+          return; // Stop polling once we get the reasoning
+        }
+
+        // Wait before next attempt
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        }
+      } catch (e) {
+        console.error("Error fetching reasoning:", e);
+
+        // If we've tried multiple times and still failing, show error
+        if (attempt >= 2) {
+          if (!controller.cancelled) {
+            setReasonText("Could not fetch reasoning.");
+            setIsLoadingReasoning(false);
+          }
+          return;
+        }
+
+        // Wait before retry
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        }
+      }
+    }
+
+    // Max attempts reached
+    if (!controller.cancelled) {
+      setReasonText(
+        "Could not fetch reasoning. The reasoning is taking longer than expected."
+      );
+      setIsLoadingReasoning(false);
     }
   };
 
@@ -139,6 +215,12 @@ const LandingPage = () => {
   };
 
   const actuallyChangeInputMethod = (method) => {
+    // Cancel any pending reasoning request
+    if (reasoningAbortController.current) {
+      reasoningAbortController.current.cancelled = true;
+      reasoningAbortController.current = null;
+    }
+
     // reset previous results/state when switching input methods
     if (
       showResults ||
@@ -196,6 +278,12 @@ const LandingPage = () => {
     // Validate file selection for CSV input method
     if (selectedInputMethod === "csv" && !selectedFile) return;
 
+    // Cancel any pending reasoning request from previous analysis
+    if (reasoningAbortController.current) {
+      reasoningAbortController.current.cancelled = true;
+      reasoningAbortController.current = null;
+    }
+
     setIsAnalyzing(true);
     setShowResults(false);
     setLightCurveData([]);
@@ -206,6 +294,7 @@ const LandingPage = () => {
     setReasonText("");
     setLightcurveUrl("");
     setIsLoadingReasoning(false);
+    setShowReasoning(false);
 
     // Prepare data for ML model based on input method
     const analysisData =
@@ -320,6 +409,11 @@ const LandingPage = () => {
         setPredictionScore(typeof res.score === "number" ? res.score : null);
 
         console.log(predictionId);
+
+        // Automatically fetch reasoning if prediction ID is available
+        if (res.id) {
+          fetchReasoningAutomatically(res.id);
+        }
       } else if (selectedInputMethod === "csv") {
         if (!selectedFile) {
           throw new Error("Please select a file to upload");
@@ -360,6 +454,8 @@ const LandingPage = () => {
         setPredictionScore(typeof res.score === "number" ? res.score : null);
         if (res.id) {
           setLightcurveUrl(lightcurveImageUrl(res.id));
+          // Automatically fetch reasoning
+          fetchReasoningAutomatically(res.id);
         }
       }
 
@@ -1409,86 +1505,9 @@ const LandingPage = () => {
                     </p>
                   </div>
                   <button
-                    onClick={async () => {
-                      console.log(predictionId);
-
-                      const next = !showReasoning;
-                      setShowReasoning(next);
-
-                      // If closing reasoning, just toggle and return
-                      if (!next) {
-                        setIsLoadingReasoning(false);
-                        return;
-                      }
-
-                      console.log(next);
-                      console.log(predictionId);
-                      console.log(reasonText);
-
-                      // If we already have reasoning, don't fetch again
-                      if (
-                        reasonText &&
-                        reasonText !== "Could not fetch reasoning."
-                      ) {
-                        return;
-                      }
-
-                      // Start loading and fetch reasoning with polling
-                      setIsLoadingReasoning(true);
-                      setReasonText(""); // Clear any previous error messages
-
-                      const pollReasoning = async () => {
-                        let attempts = 0;
-                        const maxAttempts = 60; // Poll for up to 60 attempts (5 minutes with 5s interval)
-                        const pollInterval = 5000; // 5 seconds
-
-                        while (attempts < maxAttempts) {
-                          try {
-                            const r = await fetchReason(predictionId);
-                            console.log(
-                              "Poll attempt",
-                              attempts + 1,
-                              ":",
-                              r.reason
-                            );
-
-                            if (r.reason) {
-                              setReasonText(r.reason);
-                              setIsLoadingReasoning(false);
-                              return; // Stop polling once we get the reasoning
-                            }
-
-                            // Wait before next attempt
-                            await new Promise((resolve) =>
-                              setTimeout(resolve, pollInterval)
-                            );
-                            attempts++;
-                          } catch (e) {
-                            console.error("Error fetching reasoning:", e);
-                            attempts++;
-
-                            // If we've tried multiple times and still failing, show error
-                            if (attempts >= 3) {
-                              setReasonText("Could not fetch reasoning.");
-                              setIsLoadingReasoning(false);
-                              return;
-                            }
-
-                            // Wait before retry
-                            await new Promise((resolve) =>
-                              setTimeout(resolve, pollInterval)
-                            );
-                          }
-                        }
-
-                        // Max attempts reached
-                        setReasonText(
-                          "Could not fetch reasoning. The reasoning is taking longer than expected."
-                        );
-                        setIsLoadingReasoning(false);
-                      };
-
-                      pollReasoning();
+                    onClick={() => {
+                      // Simply toggle the reasoning visibility
+                      setShowReasoning(!showReasoning);
                     }}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
                       showReasoning
