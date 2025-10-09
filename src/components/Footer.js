@@ -48,7 +48,7 @@ const Footer = () => {
         </a>
         {/* Copyright Information */}
         <div className="text-gray-400 text-sm">
-          © 2024 OrbitSix. All rights reserved.
+          © 2025 OrbitSix. All rights reserved.
         </div>
       </div>
     </footer>
