@@ -7,6 +7,8 @@ import LightCurveChart from "../components/LightCurveChart";
 import {
   deleteLightcurve,
   fetchReason,
+  getDatasetPrediction,
+  getNameSuggestion,
   lightcurveImageUrl,
   manualPredict,
   uploadCSV,
@@ -60,6 +62,7 @@ const LandingPage = () => {
   const [resetNotice, setResetNotice] = useState("");
   const [confirmSwitchOpen, setConfirmSwitchOpen] = useState(false);
   const [pendingMethod, setPendingMethod] = useState(null);
+  const [csvResults, setCsvResults] = useState([]); // Detailed CSV prediction results
 
   // Ref to track active reasoning request cancellation
   const reasoningAbortController = useRef(null);
@@ -169,14 +172,10 @@ const LandingPage = () => {
 
   // Dataset selection state - For existing dataset analysis
   const [datasetOptions, setDatasetOptions] = useState({
-    selectedDataset: "kepler-11", // Currently selected dataset
-    searchByName: "", // Search term for planet name
-    searchByDate: "", // Search term for discovery date
-    filters: {
-      planetRadius: true, // Filter by planet radius
-      discoveryYear: false, // Filter by discovery year
-      addFilter: false, // Additional filter option
-    },
+    mission: "kepler", // Mission type: kepler, k2, or tess
+    planetName: "", // Planet name or ID to search
+    suggestions: [], // Name suggestions from backend
+    isLoadingSuggestions: false, // Loading state for suggestions
   });
 
   /**
@@ -252,6 +251,7 @@ const LandingPage = () => {
     setLightcurveUrl("");
     setIsLoadingReasoning(false);
     setShowReasoning(false);
+    setCsvResults([]); // Clear CSV results
   };
 
   const requestChangeInputMethod = (method) => {
@@ -295,6 +295,7 @@ const LandingPage = () => {
     setLightcurveUrl("");
     setIsLoadingReasoning(false);
     setShowReasoning(false);
+    setCsvResults([]); // Clear previous CSV results
 
     // Prepare data for ML model based on input method
     const analysisData =
@@ -321,10 +322,8 @@ const LandingPage = () => {
         ? {
             inputType: "dataset",
             parameters: {
-              selectedDataset: datasetOptions.selectedDataset,
-              searchByName: datasetOptions.searchByName,
-              searchByDate: datasetOptions.searchByDate,
-              filters: datasetOptions.filters,
+              mission: datasetOptions.mission,
+              planetName: datasetOptions.planetName,
             },
           }
         : {
@@ -333,54 +332,6 @@ const LandingPage = () => {
           };
 
     console.log("Data prepared for ML model:", analysisData);
-
-    // For existing dataset input, load a mock light curve dataset for now
-    if (selectedInputMethod === "dataset") {
-      // Realistic periodic transit with correlated (red) noise and white noise
-      const totalDays = 7;
-      const samples = 700; // finer cadence for scatter
-      const dt = totalDays / samples;
-      const period = 2.0; // days
-      const t0 = 1.1; // phase offset so transits appear near 1.1, 3.1, 5.1...
-      const depth = 0.0065; // ~0.65% depth
-      const duration = 0.14; // days (total transit duration)
-      const ingressWidth = 0.06; // days (smoothing for ingress/egress)
-
-      // Build red noise via simple exponential smoothing (AR(1)) plus white noise
-      const redNoise = new Array(samples + 1);
-      let rn = 0;
-      const alpha = 0.92; // correlation strength
-      for (let i = 0; i <= samples; i++) {
-        const wn = (Math.random() - 0.5) * 0.0006; // white noise component
-        rn = alpha * rn + (1 - alpha) * wn * 8; // ensure noticeable but small
-        redNoise[i] = rn + wn;
-      }
-
-      const transitProfile = (time) => {
-        // distance from nearest mid-transit in days
-        const phase = (((time - t0) % period) + period) % period; // 0..period
-        const d = Math.abs(phase - period / 2);
-        const half = duration / 2;
-        if (d >= half) return 0; // out of transit
-        // inside: flat bottom with smoothed ingress/egress using cosine/smoothstep blend
-        if (d <= half - ingressWidth) return 1; // full depth
-        const x = (d - (half - ingressWidth)) / ingressWidth; // 0..1 in edge
-        const s = 0.5 * (1 + Math.cos(Math.PI * x)); // cosine ramp from 1->0
-        return s;
-      };
-
-      const mock = Array.from({ length: samples + 1 }, (_, i) => {
-        const t = i * dt; // 0..7
-        const baseline = 1.0;
-        const transit = transitProfile(t);
-        const outlier =
-          Math.random() < 0.01 ? (Math.random() - 0.5) * 0.001 : 0; // rare small outliers
-        const flux = baseline - depth * transit + redNoise[i] + outlier;
-        return { time: t, flux };
-      });
-
-      setLightCurveData(mock);
-    }
 
     try {
       if (selectedInputMethod === "manual") {
@@ -433,7 +384,33 @@ const LandingPage = () => {
             `Found ${totalExoplanets} potential exoplanets out of ${totalCandidates} candidates`
           );
           setPredictionScore(totalExoplanets / totalCandidates);
+
+          // Store detailed results for table display (1-based row numbering)
+          const detailedResults = res.res.map((verdict, index) => ({
+            rowNumber: index + 1, // 1-based row numbering
+            verdict: verdict,
+            isExoplanet: verdict === "Exoplanet",
+          }));
+          setCsvResults(detailedResults);
         }
+      } else if (selectedInputMethod === "dataset") {
+        // Validate inputs
+        if (
+          !datasetOptions.planetName ||
+          datasetOptions.planetName.trim() === ""
+        ) {
+          throw new Error("Please enter a planet name or ID");
+        }
+
+        // Call the dataset prediction endpoint
+        const res = await getDatasetPrediction(
+          datasetOptions.mission,
+          datasetOptions.planetName.trim()
+        );
+
+        setPredictionVerdict(res.verdict || null);
+        // For dataset predictions, we don't get a score from backend, so set a placeholder
+        setPredictionScore(res.verdict === "Exoplanet" ? 1.0 : 0.0);
       } else if (selectedInputMethod === "raw") {
         if (!selectedFile) {
           throw new Error("Please select a file to upload");
@@ -491,30 +468,64 @@ const LandingPage = () => {
       ...prev,
       [field]: value,
     }));
+
+    // If planet name changed and has at least 2 characters, fetch suggestions
+    if (field === "planetName" && value.length >= 2) {
+      fetchNameSuggestions(datasetOptions.mission, value);
+    } else if (field === "planetName" && value.length < 2) {
+      // Clear suggestions if less than 2 characters
+      setDatasetOptions((prev) => ({
+        ...prev,
+        suggestions: [],
+      }));
+    }
+
+    // If mission changed, clear suggestions
+    if (field === "mission") {
+      setDatasetOptions((prev) => ({
+        ...prev,
+        suggestions: [],
+      }));
+    }
   };
 
   /**
-   * Updates filter options for dataset selection
-   * @param {string} filterName - The filter name to update
-   * @param {boolean} checked - Whether the filter is enabled
+   * Fetch name suggestions from backend
+   * @param {string} mission - Mission type (kepler, k2, tess)
+   * @param {string} nameQuery - Search query
    */
-  const handleFilterChange = (filterName, checked) => {
+  const fetchNameSuggestions = async (mission, nameQuery) => {
+    if (!nameQuery || nameQuery.trim().length < 2) {
+      return;
+    }
+
     setDatasetOptions((prev) => ({
       ...prev,
-      filters: {
-        ...prev.filters,
-        [filterName]: checked,
-      },
+      isLoadingSuggestions: true,
     }));
+
+    try {
+      const res = await getNameSuggestion(mission, nameQuery.trim());
+      setDatasetOptions((prev) => ({
+        ...prev,
+        suggestions: res.suggested_names || [],
+        isLoadingSuggestions: false,
+      }));
+    } catch (error) {
+      console.error("Error fetching name suggestions:", error);
+      setDatasetOptions((prev) => ({
+        ...prev,
+        suggestions: [],
+        isLoadingSuggestions: false,
+      }));
+    }
   };
 
-  // Available datasets for selection
-  const availableDatasets = [
-    { value: "kepler-11", label: "Kepler-11 System" },
-    { value: "kepler-186", label: "Kepler-186 System" },
-    { value: "trappist-1", label: "TRAPPIST-1 System" },
-    { value: "proxima-centauri", label: "Proxima Centauri System" },
-    { value: "k2-18", label: "K2-18 System" },
+  // Available missions for dataset selection
+  const availableMissions = [
+    { value: "kepler", label: "Kepler Mission" },
+    { value: "k2", label: "K2 Mission" },
+    { value: "tess", label: "TESS Mission" },
   ];
 
   return (
@@ -1141,153 +1152,131 @@ const LandingPage = () => {
             <>
               <div className="text-center mb-8">
                 <p className="text-gray-400 text-lg">
-                  Run our model on existing datasets (KOI, TOI, etc.). You will
-                  get ideas about how well our model is working on different
-                  existing datasets.
+                  Run our model on existing datasets from NASA Exoplanet
+                  Archive. Select a mission and enter the planet name or ID to
+                  analyze.
                 </p>
               </div>
               <div className="bg-slate-800 rounded-lg p-8">
-                {/* Dataset Selection */}
+                {/* Mission Selection */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium mb-3">
-                    Select a Dataset
+                    Select Mission
                   </label>
                   <select
-                    value={datasetOptions.selectedDataset}
+                    value={datasetOptions.mission}
                     onChange={(e) =>
-                      handleDatasetChange("selectedDataset", e.target.value)
+                      handleDatasetChange("mission", e.target.value)
                     }
                     className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
                   >
-                    {availableDatasets.map((dataset) => (
-                      <option key={dataset.value} value={dataset.value}>
-                        {dataset.label}
+                    {availableMissions.map((mission) => (
+                      <option key={mission.value} value={mission.value}>
+                        {mission.label}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Search Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  {/* Search by Name */}
-                  <div>
-                    <label className="block text-sm font-medium mb-3">
-                      Search by Name
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg
-                          className="h-5 w-5 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                          />
-                        </svg>
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="e.g. Kepler-11b"
-                        value={datasetOptions.searchByName}
-                        onChange={(e) =>
-                          handleDatasetChange("searchByName", e.target.value)
-                        }
-                        className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Search by Discovery Date */}
-                  <div>
-                    <label className="block text-sm font-medium mb-3">
-                      Search by Discovery Date
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg
-                          className="h-5 w-5 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                      </div>
-                      <input
-                        type="date"
-                        value={datasetOptions.searchByDate}
-                        onChange={(e) =>
-                          handleDatasetChange("searchByDate", e.target.value)
-                        }
-                        className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-3 text-white focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Filter Options */}
-                <div className="mb-8">
+                {/* Planet Name Input */}
+                <div className="mb-6">
                   <label className="block text-sm font-medium mb-3">
-                    Select columns to search
+                    Planet Name or ID
                   </label>
-                  <div className="flex flex-wrap gap-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={datasetOptions.filters.planetRadius}
-                        onChange={(e) =>
-                          handleFilterChange("planetRadius", e.target.checked)
-                        }
-                        className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
-                      />
-                      <span className="ml-2 text-sm bg-blue-600 px-3 py-1 rounded-full">
-                        Planet Radius
-                      </span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={datasetOptions.filters.discoveryYear}
-                        onChange={(e) =>
-                          handleFilterChange("discoveryYear", e.target.checked)
-                        }
-                        className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
-                      />
-                      <span className="ml-2 text-sm bg-slate-700 px-3 py-1 rounded-full">
-                        Discovery Year
-                      </span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={datasetOptions.filters.addFilter}
-                        onChange={(e) =>
-                          handleFilterChange("addFilter", e.target.checked)
-                        }
-                        className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
-                      />
-                      <span className="ml-2 text-sm text-blue-400">
-                        Add Filter
-                      </span>
-                    </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg
+                        className="h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder={
+                        datasetOptions.mission === "kepler"
+                          ? "e.g., Kepler-22 b or K00087.01"
+                          : datasetOptions.mission === "k2"
+                          ? "e.g., K2-18 b"
+                          : "e.g., TOI 700 d"
+                      }
+                      value={datasetOptions.planetName}
+                      onChange={(e) =>
+                        handleDatasetChange("planetName", e.target.value)
+                      }
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    />
                   </div>
+
+                  {/* Name Suggestions */}
+                  {datasetOptions.isLoadingSuggestions && (
+                    <div className="mt-2 text-sm text-gray-400">
+                      Loading suggestions...
+                    </div>
+                  )}
+                  {!datasetOptions.isLoadingSuggestions &&
+                    datasetOptions.suggestions.length > 0 && (
+                      <div className="mt-2 bg-slate-700 rounded-lg border border-slate-600 max-h-48 overflow-y-auto">
+                        {datasetOptions.suggestions.map((suggestion, idx) => {
+                          // Extract name field based on mission
+                          let displayName = "";
+                          if (datasetOptions.mission === "kepler") {
+                            displayName =
+                              suggestion.kepler_name ||
+                              suggestion.kepoi_name ||
+                              "";
+                          } else if (datasetOptions.mission === "k2") {
+                            displayName =
+                              suggestion.pl_name || suggestion.k2_name || "";
+                          } else if (datasetOptions.mission === "tess") {
+                            displayName =
+                              suggestion.toi || suggestion.tid || "";
+                          }
+
+                          if (!displayName) return null;
+
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                handleDatasetChange("planetName", displayName);
+                                setDatasetOptions((prev) => ({
+                                  ...prev,
+                                  suggestions: [],
+                                }));
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-600 text-sm text-gray-300 hover:text-white transition-colors"
+                            >
+                              {displayName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                 </div>
 
                 {/* Analyze Button */}
                 <div className="text-center">
                   <button
                     onClick={handleAnalysis}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors"
+                    disabled={
+                      !datasetOptions.planetName ||
+                      datasetOptions.planetName.trim() === ""
+                    }
+                    className={`px-8 py-3 rounded-lg text-lg font-semibold transition-colors ${
+                      !datasetOptions.planetName ||
+                      datasetOptions.planetName.trim() === ""
+                        ? "bg-slate-600 text-gray-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
                   >
                     Analyze Data
                   </button>
@@ -1521,6 +1510,78 @@ const LandingPage = () => {
 
                 {predictionError && (
                   <div className="mb-6 text-red-400">{predictionError}</div>
+                )}
+
+                {/* CSV Results Table */}
+                {selectedInputMethod === "csv" && csvResults.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="text-2xl font-bold text-gray-200 mb-4">
+                      Detailed Results
+                    </h3>
+                    <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden">
+                      <div className="max-h-96 overflow-y-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-800 sticky top-0">
+                            <tr>
+                              <th className="px-6 py-3 text-sm font-semibold text-gray-300 border-b border-slate-700">
+                                Row #
+                              </th>
+                              <th className="px-6 py-3 text-sm font-semibold text-gray-300 border-b border-slate-700">
+                                Verdict
+                              </th>
+                              <th className="px-6 py-3 text-sm font-semibold text-gray-300 border-b border-slate-700">
+                                Status
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-700">
+                            {csvResults.map((result) => (
+                              <tr
+                                key={result.rowNumber}
+                                className={`hover:bg-slate-800 transition-colors ${
+                                  result.isExoplanet
+                                    ? "bg-green-900/20"
+                                    : "bg-slate-900"
+                                }`}
+                              >
+                                <td className="px-6 py-3 text-sm text-gray-300">
+                                  {result.rowNumber}
+                                </td>
+                                <td className="px-6 py-3 text-sm">
+                                  <span
+                                    className={`font-medium ${
+                                      result.isExoplanet
+                                        ? "text-green-400"
+                                        : "text-gray-400"
+                                    }`}
+                                  >
+                                    {result.verdict}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-3 text-sm">
+                                  {result.isExoplanet ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-300">
+                                      ✓ Exoplanet
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-gray-300">
+                                      ✗ Not Exoplanet
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="bg-slate-800 px-6 py-3 border-t border-slate-700">
+                        <p className="text-sm text-gray-400">
+                          Total rows: {csvResults.length} | Exoplanets:{" "}
+                          {csvResults.filter((r) => r.isExoplanet).length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {/* Raw light curve image (for raw uploads) */}
