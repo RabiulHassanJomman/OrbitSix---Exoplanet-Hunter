@@ -1,5 +1,4 @@
 // Lightweight API client for backend connectivity
-// If REACT_APP_API_BASE_URL is not set, use relative URLs and rely on CRA proxy in development.
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 export function getApiBaseUrl() {
@@ -7,9 +6,7 @@ export function getApiBaseUrl() {
 }
 
 export async function manualPredict(payload) {
-  const url = API_BASE_URL
-    ? `${API_BASE_URL}/manual-predict`
-    : "/manual-predict";
+  const url = `${API_BASE_URL}/manual-predict`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -57,7 +54,7 @@ export async function deleteLightcurve(id) {
 export async function uploadCSV(file) {
   const form = new FormData();
   form.append("file", file);
-  const url = API_BASE_URL ? `${API_BASE_URL}/predict-csv` : "/predict-csv";
+  const url = `${API_BASE_URL}/predict-csv`;
   const res = await fetch(url, {
     method: "POST",
     body: form,
