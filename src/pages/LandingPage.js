@@ -1493,19 +1493,22 @@ const LandingPage = () => {
                       %
                     </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      // Simply toggle the reasoning visibility
-                      setShowReasoning(!showReasoning);
-                    }}
-                    className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-                      showReasoning
-                        ? "bg-red-600 hover:bg-red-700 text-white"
-                        : "bg-blue-600 hover:bg-blue-700 text-white"
-                    }`}
-                  >
-                    {showReasoning ? "CLOSE REASONING" : "VIEW REASONING"}
-                  </button>
+                  {/* Only show reasoning button for manual input method */}
+                  {selectedInputMethod === "manual" && (
+                    <button
+                      onClick={() => {
+                        // Simply toggle the reasoning visibility
+                        setShowReasoning(!showReasoning);
+                      }}
+                      className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+                        showReasoning
+                          ? "bg-red-600 hover:bg-red-700 text-white"
+                          : "bg-blue-600 hover:bg-blue-700 text-white"
+                      }`}
+                    >
+                      {showReasoning ? "CLOSE REASONING" : "VIEW REASONING"}
+                    </button>
+                  )}
                 </div>
 
                 {predictionError && (
@@ -1529,9 +1532,6 @@ const LandingPage = () => {
                               <th className="px-6 py-3 text-sm font-semibold text-gray-300 border-b border-slate-700">
                                 Verdict
                               </th>
-                              <th className="px-6 py-3 text-sm font-semibold text-gray-300 border-b border-slate-700">
-                                Status
-                              </th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-700">
@@ -1548,23 +1548,12 @@ const LandingPage = () => {
                                   {result.rowNumber}
                                 </td>
                                 <td className="px-6 py-3 text-sm">
-                                  <span
-                                    className={`font-medium ${
-                                      result.isExoplanet
-                                        ? "text-green-400"
-                                        : "text-gray-400"
-                                    }`}
-                                  >
-                                    {result.verdict}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-3 text-sm">
                                   {result.isExoplanet ? (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-300">
+                                    <span className="font-medium text-green-400">
                                       ✓ Exoplanet
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-gray-300">
+                                    <span className="font-medium text-gray-400">
                                       ✗ Not Exoplanet
                                     </span>
                                   )}
@@ -1632,8 +1621,8 @@ const LandingPage = () => {
                     </div>
                   )}
 
-                {/* Reasoning Section - Shows when button is clicked */}
-                {showReasoning && (
+                {/* Reasoning Section - Only shows for manual input method */}
+                {selectedInputMethod === "manual" && showReasoning && (
                   <div className="mt-8">
                     <h3 className="text-2xl font-bold text-gray-200 mb-4">
                       Reasoning:
