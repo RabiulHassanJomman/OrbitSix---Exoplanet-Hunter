@@ -505,7 +505,32 @@ const LandingPage = () => {
     }));
 
     try {
-      const res = await getNameSuggestion(mission, nameQuery.trim());
+      // Format query based on mission to handle case sensitivity
+      let formattedQuery = nameQuery.trim();
+
+      // For Kepler: capitalize first letter (e.g., "kepler" -> "Kepler")
+      if (
+        mission === "kepler" &&
+        formattedQuery.toLowerCase().startsWith("kepler")
+      ) {
+        formattedQuery =
+          formattedQuery.charAt(0).toUpperCase() + formattedQuery.slice(1);
+      }
+
+      // For K2: ensure K is uppercase (e.g., "k2" -> "K2")
+      if (mission === "k2" && formattedQuery.toLowerCase().startsWith("k")) {
+        formattedQuery = "K" + formattedQuery.slice(1);
+      }
+
+      // For TESS: uppercase TOI (e.g., "toi" -> "TOI")
+      if (
+        mission === "tess" &&
+        formattedQuery.toLowerCase().startsWith("toi")
+      ) {
+        formattedQuery = "TOI" + formattedQuery.slice(3);
+      }
+
+      const res = await getNameSuggestion(mission, formattedQuery);
       setDatasetOptions((prev) => ({
         ...prev,
         suggestions: res.suggested_names || [],
