@@ -505,29 +505,31 @@ const LandingPage = () => {
     }));
 
     try {
-      // Format query based on mission to handle case sensitivity
       let formattedQuery = nameQuery.trim();
 
-      // For Kepler: capitalize first letter (e.g., "kepler" -> "Kepler")
-      if (
-        mission === "kepler" &&
-        formattedQuery.toLowerCase().startsWith("kepler")
-      ) {
+      // Capitalize first letter for better matching (Kepler, K2, TOI, etc.)
+      if (mission === "kepler") {
+        // Capitalize first letter: "kepler" -> "Kepler"
         formattedQuery =
           formattedQuery.charAt(0).toUpperCase() + formattedQuery.slice(1);
-      }
-
-      // For K2: ensure K is uppercase (e.g., "k2" -> "K2")
-      if (mission === "k2" && formattedQuery.toLowerCase().startsWith("k")) {
-        formattedQuery = "K" + formattedQuery.slice(1);
-      }
-
-      // For TESS: uppercase TOI (e.g., "toi" -> "TOI")
-      if (
-        mission === "tess" &&
-        formattedQuery.toLowerCase().startsWith("toi")
-      ) {
-        formattedQuery = "TOI" + formattedQuery.slice(3);
+      } else if (mission === "k2") {
+        // Ensure K is uppercase: "k2-18" -> "K2-18"
+        if (formattedQuery.toLowerCase().startsWith("k")) {
+          formattedQuery = "K" + formattedQuery.slice(1);
+        } else {
+          // If not starting with K, still capitalize first letter
+          formattedQuery =
+            formattedQuery.charAt(0).toUpperCase() + formattedQuery.slice(1);
+        }
+      } else if (mission === "tess") {
+        // Handle TOI prefix: "toi" -> "TOI"
+        if (formattedQuery.toLowerCase().startsWith("toi")) {
+          formattedQuery = "TOI" + formattedQuery.slice(3);
+        } else {
+          // For TIC IDs or other patterns, capitalize first letter
+          formattedQuery =
+            formattedQuery.charAt(0).toUpperCase() + formattedQuery.slice(1);
+        }
       }
 
       const res = await getNameSuggestion(mission, formattedQuery);
